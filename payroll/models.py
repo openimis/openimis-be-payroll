@@ -1,13 +1,16 @@
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
 
-from core.models import HistoryModel
+from core.models import HistoryModel, InteractiveUser
 from invoice.models import Bill
+from location.models import Location
 from social_protection.models import BenefitPlan
 
 
 class PaymentPoint(HistoryModel):
-    pass
+    name = models.CharField(max_length=255)
+    location = models.ForeignKey(Location, models.DO_NOTHING)
+    ppm = models.ForeignKey(InteractiveUser, models.DO_NOTHING)
 
 
 class Payroll(HistoryModel):
