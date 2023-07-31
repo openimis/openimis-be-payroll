@@ -30,8 +30,10 @@ class CreatePayrollInput(OpenIMISMutation.Input):
     name = graphene.String(required=True, max_length=255)
     benefit_plan_id = graphene.UUID(required=True)
     payment_point_id = graphene.UUID(required=True)
-    date_valid_from = graphene.Date()
-    date_valid_to = graphene.Date()
+
+    date_valid_from = graphene.Date(required=False)
+    date_valid_to = graphene.Date(required=False)
+    json_ext = graphene.JSONString(required=False)
 
 
 class DeletePayrollInputType(DeletePaymentPointInputType):

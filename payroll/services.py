@@ -37,7 +37,6 @@ class PaymentPointService(BaseService):
 
 class PayrollService(BaseService):
     OBJECT_TYPE = Payroll
-    OBJECT_TYPE_STRING = "Payroll"
 
     def __init__(self, user, validation_class=PayrollValidation):
         super().__init__(user, validation_class)
@@ -48,13 +47,14 @@ class PayrollService(BaseService):
         try:
             with transaction.atomic():
                 obj_data = self._adjust_create_payload(obj_data)
-                payroll_id = obj_data.get("payroll_id", None)
                 bills_queryset = self._get_bills_queryset(obj_data)
                 obj_data_and_bills = {**obj_data, "bills": bills_queryset}
                 self.validation_class.validate_create(self.user, **obj_data_and_bills)
                 obj_ = self.OBJECT_TYPE(**obj_data)
+                dict_representation = self.save_instance(obj_)
+                payroll_id = dict_representation["data"]["id"]
                 self._create_payroll_bills(bills_queryset, payroll_id)
-                return self.save_instance(obj_)
+                return dict_representation
         except Exception as exc:
             return output_exception(model_name=self.OBJECT_TYPE.__name__, method="create", exception=exc)
 
@@ -77,7 +77,7 @@ class PayrollService(BaseService):
     def _create_payroll_bills(self, bills_queryset, payroll_id):
         for bill in bills_queryset:
             payroll_bill = PayrollBill(bill_id=bill.id, payroll_id=payroll_id)
-            payroll_bill.save(self.user.username)
+            payroll_bill.save(username=self.user.username)
 
     def _get_bills_queryset(self, obj_data):
         benefit_plan_id = obj_data.get("benefit_plan_id")
@@ -85,26 +85,30 @@ class PayrollService(BaseService):
         date_to = obj_data.get("date_valid_to")
         json_ext = obj_data.get("json_ext")
 
-        custom_filters = json_ext.get("advanced_criteria", None) if json_ext else None
+        custom_filters = [
+            criterion["custom_filter_condition"]
+            for criterion in json_ext.get("advanced_criteria", [])
+        ] if json_ext else []
 
-        beneficiaries_ids = Beneficiary.objects.filter(
+        beneficiaries_queryset = Beneficiary.objects.filter(
             benefit_plan__id=benefit_plan_id
-        ).values_list('id', flat=True)
+        )
+
+        if custom_filters:
+            beneficiaries_queryset = CustomFilterWizardStorage.build_custom_filters_queryset(
+                PayrollConfig.name,
+                "BenefitPlan",
+                custom_filters,
+                beneficiaries_queryset,
+            )
+
+        beneficiary_ids = list(beneficiaries_queryset.values_list('id', flat=True))
 
         bills_queryset = Bill.objects.filter(
             is_deleted=False,
             date_bill__range=(date_from, date_to),
             subject_type=ContentType.objects.get_for_model(Beneficiary),
-            subject_id__in=beneficiaries_ids
+            subject_id__in=beneficiary_ids
         )
-
-        if custom_filters:
-            custom_filters_query = CustomFilterWizardStorage.build_custom_filters_queryset(
-                PayrollConfig.name,
-                self.OBJECT_TYPE_STRING,
-                custom_filters,
-                bills_queryset
-            )
-            return custom_filters_query
 
         return bills_queryset

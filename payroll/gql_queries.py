@@ -3,8 +3,10 @@ from graphene_django import DjangoObjectType
 
 from core import prefix_filterset, ExtendedConnection
 from core.gql_queries import InteractiveUserGQLType
+from invoice.gql.gql_types.bill_types import BillGQLType
+from invoice.models import Bill
 from location.gql_queries import LocationGQLType
-from payroll.models import PaymentPoint, Payroll
+from payroll.models import PaymentPoint, Payroll, PayrollBill
 from social_protection.gql_queries import BenefitPlanGQLType
 
 
@@ -30,6 +32,7 @@ class PaymentPointGQLType(DjangoObjectType):
 
 class PayrollGQLType(DjangoObjectType):
     uuid = graphene.String(source='uuid')
+    bill = graphene.List(BillGQLType)
 
     class Meta:
         model = Payroll
@@ -48,3 +51,6 @@ class PayrollGQLType(DjangoObjectType):
             "version": ["exact"],
         }
         connection_class = ExtendedConnection
+
+    def resolve_bill(self, info):
+        return Bill.objects.filter(payrollbill__payroll__id=self.id)

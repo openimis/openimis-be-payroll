@@ -93,6 +93,21 @@ mutation m2 {
                 paymentPointId: "%s"
                 dateValidFrom: "%s"
                 dateValidTo: "%s"
+                jsonExt: "%s"
+  }) {
+    clientMutationId
+  }
+}
+"""
+
+gql_payroll_create_no_advanced_criteria = """
+mutation m2 {
+  createPayroll (input:{
+                name: "%s", 
+                benefitPlanId: "%s", 
+                paymentPointId: "%s"
+                dateValidFrom: "%s"
+                dateValidTo: "%s"
   }) {
     clientMutationId
   }

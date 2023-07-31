@@ -1,5 +1,7 @@
 from django.apps import AppConfig
 
+from core.custom_filters import CustomFilterRegistryPoint
+
 MODULE_NAME = 'payroll'
 
 DEFAULT_CONFIG = {
@@ -39,3 +41,9 @@ class PayrollConfig(AppConfig):
         for field in cfg:
             if hasattr(PayrollConfig, field):
                 setattr(PayrollConfig, field, cfg[field])
+
+        from social_protection.custom_filters import BenefitPlanCustomFilterWizard
+        CustomFilterRegistryPoint.register_custom_filters(
+            module_name=cls.name,
+            custom_filter_class_list=[BenefitPlanCustomFilterWizard]
+        )

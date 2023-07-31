@@ -33,26 +33,46 @@ class PayrollValidation(BaseModelValidation):
 
 
 def validate_payroll(data):
-    # return [
-    #     *are_bills_in_data(data),
-    #     *validate_one_payroll_per_bill(data)
-    # ]
-    return []
+    return [
+        *are_bills_in_data(data),
+        *validate_one_payroll_per_bill(data),
+        *validate_payroll_unique_name(data, uuid=None),
+        *validate_not_empty_field(data, 'name')
+    ]
 
 
 def are_bills_in_data(data):
     bills = data.get('bills', None)
     if not bills:
-        return [{"message": _("payroll.validation.payroll.no_bills_in_date_range")}]
+        return [{"message": _("payroll.validation.payroll.no_bills_for_filter_criteria")}]
     return []
 
 
 def validate_one_payroll_per_bill(data):
     bills = data.get('bills', [])
-    query = PayrollBill.objects.filters(bill__in=bills)
+    query = PayrollBill.objects.filter(bill__in=bills)
     if query.exists():
         payroll_bill_ids = list(query.values_list('id', flat=True))
         return [{"message": _("payroll.validation.payroll.bill_already_assigned") % {
             "bill_ids": payroll_bill_ids,
+        }}]
+    return []
+
+
+def validate_payroll_unique_name(data, uuid=None):
+    name = data.get("name")
+    instance = Payroll.objects.filter(name=name, is_deleted=False).first()
+    if instance and str(instance.uuid) != uuid:
+        return [{"message": _("payroll.validation.payroll.name_exists" % {
+            'name': name
+        })}]
+    return []
+
+
+def validate_not_empty_field(data, field):
+    string = data.get('name')
+    if not string:
+        return [{"message": _("payroll.validation.field_empty") % {
+            'field': field
         }}]
     return []
