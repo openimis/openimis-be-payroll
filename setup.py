@@ -21,9 +21,11 @@ setup(
     author_email='kmalinowski@soldevelo.com',
     install_requires=[
         'django',
+        'graphene-django',
         'django-db-signals',
         'djangorestframework',
         'openimis-be-core',
+        'openimis-be-location',
         'openimis-be-invoice'
     ],
     classifiers=[

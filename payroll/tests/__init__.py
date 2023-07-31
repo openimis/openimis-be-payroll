@@ -1,0 +1,1 @@
+from payroll.tests.payment_point_gql_tests import PaymentPointGQLTestCase
