@@ -26,6 +26,18 @@ class DeletePaymentPointInputType(OpenIMISMutation.Input):
     ids = graphene.List(graphene.UUID, required=True)
 
 
+class CreatePayrollInput(OpenIMISMutation.Input):
+    name = graphene.String(required=True, max_length=255)
+    benefit_plan_id = graphene.UUID(required=True)
+    payment_point_id = graphene.UUID(required=True)
+    date_valid_from = graphene.Date()
+    date_valid_to = graphene.Date()
+
+
+class DeletePayrollInputType(DeletePaymentPointInputType):
+    pass
+
+
 class CreatePaymentPointMutation(BaseHistoryModelCreateMutationMixin, BaseMutation):
     _mutation_class = "CreatePaymentPointMutation"
     _mutation_module = PayrollConfig.name
@@ -100,13 +112,6 @@ class DeletePaymentPointMutation(BaseHistoryModelDeleteMutationMixin, BaseMutati
         pass
 
 
-class CreatePayrollInput(OpenIMISMutation.Input):
-    name = graphene.String(required=True, max_length=255)
-    benefit_plan_id = graphene.UUID(required=True)
-    payment_point_id = graphene.UUID(required=True)
-    custom_filters = graphene.List(graphene.String(required=True), required=False)
-
-
 class CreatePayrollMutation(BaseHistoryModelCreateMutationMixin, BaseMutation):
     _mutation_class = "CreatePayrollMutation"
     _mutation_module = "payroll"
@@ -160,5 +165,5 @@ class DeletePayrollMutation(BaseHistoryModelDeleteMutationMixin, BaseMutation):
                 for id in ids:
                     service.delete({'id': id})
 
-    class Input(OpenIMISMutation.Input):
-        ids = graphene.List(graphene.UUID)
+    class Input(DeletePayrollInputType):
+        pass

@@ -33,22 +33,23 @@ class PayrollValidation(BaseModelValidation):
 
 
 def validate_payroll(data):
-    return [
-        *are_bills_in_data(data),
-        *validate_one_payroll_per_bill(data)
-    ]
+    # return [
+    #     *are_bills_in_data(data),
+    #     *validate_one_payroll_per_bill(data)
+    # ]
+    return []
 
 
 def are_bills_in_data(data):
-    bill_ids = data.get('bill_ids', None)
-    if not bill_ids:
-        return [{"message": _("payroll.validation.payroll.no_bills_in_data")}]
+    bills = data.get('bills', None)
+    if not bills:
+        return [{"message": _("payroll.validation.payroll.no_bills_in_date_range")}]
     return []
 
 
 def validate_one_payroll_per_bill(data):
-    bill_ids = data.get('bill_ids', [])
-    query = PayrollBill.objects.filters(bill__in=bill_ids)
+    bills = data.get('bills', [])
+    query = PayrollBill.objects.filters(bill__in=bills)
     if query.exists():
         payroll_bill_ids = list(query.values_list('id', flat=True))
         return [{"message": _("payroll.validation.payroll.bill_already_assigned") % {

@@ -54,6 +54,7 @@ class Query(graphene.ObjectType):
         gql_optimizer.query(query, info)
 
     def resolve_payroll(self, info, **kwargs):
+        Query._check_permissions(info.context.user, PayrollConfig.gql_payroll_search_perms)
         filters = append_validity_filter(**kwargs)
 
         client_mutation_id = kwargs.get("client_mutation_id")

@@ -56,3 +56,56 @@ mutation m1 {
   }
 }
 """
+
+gql_payroll_query = """
+query q2 {
+  payroll {
+    edges {
+      node {
+        id
+      }
+    }
+  }
+}
+"""
+
+gql_payroll_filter = """
+query q2 {
+  paymentPoint(name_Iexact: "%s", 
+                benefitPlan_Uuid: "%s", 
+                paymentPoint_Uuid: "%s"
+                dateValidFrom: "%s"
+                dateValidTo: "%s") {
+    edges {
+      node {
+        id
+      }
+    }
+  }
+}
+"""
+
+gql_payroll_create = """
+mutation m2 {
+  createPayroll (input:{
+                name: "%s", 
+                benefitPlanId: "%s", 
+                paymentPointId: "%s"
+                dateValidFrom: "%s"
+                dateValidTo: "%s"
+  }) {
+    clientMutationId
+  }
+}
+"""
+
+
+gql_payroll_delete = """
+mutation m2 {
+  deletePayroll (input:{
+    ids: %s
+  }) {
+    clientMutationId
+  }
+}
+"""

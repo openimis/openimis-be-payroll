@@ -5,6 +5,7 @@ from core import prefix_filterset, ExtendedConnection
 from core.gql_queries import InteractiveUserGQLType
 from location.gql_queries import LocationGQLType
 from payroll.models import PaymentPoint, Payroll
+from social_protection.gql_queries import BenefitPlanGQLType
 
 
 class PaymentPointGQLType(DjangoObjectType):
@@ -35,9 +36,14 @@ class PayrollGQLType(DjangoObjectType):
         interfaces = (graphene.relay.Node,)
         filter_fields = {
             "id": ["exact"],
+            "name": ["iexact", "istartswith", "icontains"],
+            **prefix_filterset("payment_point__", PaymentPointGQLType._meta.filter_fields),
+            **prefix_filterset("benefit_plan__", BenefitPlanGQLType._meta.filter_fields),
 
             "date_created": ["exact", "lt", "lte", "gt", "gte"],
             "date_updated": ["exact", "lt", "lte", "gt", "gte"],
+            "date_valid_from": ["exact", "lt", "lte", "gt", "gte"],
+            "date_valid_to": ["exact", "lt", "lte", "gt", "gte"],
             "is_deleted": ["exact"],
             "version": ["exact"],
         }

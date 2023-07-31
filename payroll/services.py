@@ -1,9 +1,17 @@
 import logging
 
+from django.db import transaction
+from django.contrib.contenttypes.models import ContentType
+
+from core.custom_filters import CustomFilterWizardStorage
 from core.services import BaseService
 from core.signals import register_service_signal
-from payroll.models import PaymentPoint, Payroll
-from payroll.validation import PaymentPointValidation
+from invoice.models import Bill
+from payroll.apps import PayrollConfig
+from payroll.models import PaymentPoint, Payroll, PayrollBill
+from payroll.validation import PaymentPointValidation, PayrollValidation
+from core.services.utils import output_exception, check_authentication
+from social_protection.models import Beneficiary
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +37,74 @@ class PaymentPointService(BaseService):
 
 class PayrollService(BaseService):
     OBJECT_TYPE = Payroll
+    OBJECT_TYPE_STRING = "Payroll"
 
     def __init__(self, user, validation_class=PayrollValidation):
         super().__init__(user, validation_class)
+
+    @check_authentication
+    @register_service_signal('payroll_service.create')
+    def create(self, obj_data):
+        try:
+            with transaction.atomic():
+                obj_data = self._adjust_create_payload(obj_data)
+                payroll_id = obj_data.get("payroll_id", None)
+                bills_queryset = self._get_bills_queryset(obj_data)
+                obj_data_and_bills = {**obj_data, "bills": bills_queryset}
+                self.validation_class.validate_create(self.user, **obj_data_and_bills)
+                obj_ = self.OBJECT_TYPE(**obj_data)
+                self._create_payroll_bills(bills_queryset, payroll_id)
+                return self.save_instance(obj_)
+        except Exception as exc:
+            return output_exception(model_name=self.OBJECT_TYPE.__name__, method="create", exception=exc)
+
+    @register_service_signal('payroll_service.update')
+    def update(self, obj_data):
+        raise NotImplementedError()
+
+    @check_authentication
+    @register_service_signal('payroll_service.delete')
+    def delete(self, obj_data):
+        try:
+            with transaction.atomic():
+                self.validation_class.validate_delete(self.user, **obj_data)
+                obj_ = self.OBJECT_TYPE.objects.filter(id=obj_data['id']).first()
+                PayrollBill.objects.filter(payroll=obj_).delete()
+                return self.delete_instance(obj_)
+        except Exception as exc:
+            return output_exception(model_name=self.OBJECT_TYPE.__name__, method="delete", exception=exc)
+
+    def _create_payroll_bills(self, bills_queryset, payroll_id):
+        for bill in bills_queryset:
+            payroll_bill = PayrollBill(bill_id=bill.id, payroll_id=payroll_id)
+            payroll_bill.save(self.user.username)
+
+    def _get_bills_queryset(self, obj_data):
+        benefit_plan_id = obj_data.get("benefit_plan_id")
+        date_from = obj_data.get("date_valid_from")
+        date_to = obj_data.get("date_valid_to")
+        json_ext = obj_data.get("json_ext")
+
+        custom_filters = json_ext.get("advanced_criteria", None) if json_ext else None
+
+        beneficiaries_ids = Beneficiary.objects.filter(
+            benefit_plan__id=benefit_plan_id
+        ).values_list('id', flat=True)
+
+        bills_queryset = Bill.objects.filter(
+            is_deleted=False,
+            date_bill__range=(date_from, date_to),
+            subject_type=ContentType.objects.get_for_model(Beneficiary),
+            subject_id__in=beneficiaries_ids
+        )
+
+        if custom_filters:
+            custom_filters_query = CustomFilterWizardStorage.build_custom_filters_queryset(
+                PayrollConfig.name,
+                self.OBJECT_TYPE_STRING,
+                custom_filters,
+                bills_queryset
+            )
+            return custom_filters_query
+
+        return bills_queryset
