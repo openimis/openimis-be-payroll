@@ -2,11 +2,11 @@ import graphene
 from graphene_django import DjangoObjectType
 
 from core import prefix_filterset, ExtendedConnection
-from core.gql_queries import InteractiveUserGQLType
+from core.gql_queries import UserGQLType
 from invoice.gql.gql_types.bill_types import BillGQLType
 from invoice.models import Bill
 from location.gql_queries import LocationGQLType
-from payroll.models import PaymentPoint, Payroll, PayrollBill
+from payroll.models import PaymentPoint, Payroll
 from social_protection.gql_queries import BenefitPlanGQLType
 
 
@@ -20,7 +20,7 @@ class PaymentPointGQLType(DjangoObjectType):
             "id": ["exact"],
             "name": ["iexact", "istartswith", "icontains"],
             **prefix_filterset("location__", LocationGQLType._meta.filter_fields),
-            **prefix_filterset("ppm__", InteractiveUserGQLType._meta.filter_fields),
+            **prefix_filterset("ppm__", UserGQLType._meta.filter_fields),
 
             "date_created": ["exact", "lt", "lte", "gt", "gte"],
             "date_updated": ["exact", "lt", "lte", "gt", "gte"],

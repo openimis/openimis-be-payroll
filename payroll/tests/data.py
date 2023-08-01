@@ -27,7 +27,7 @@ mutation m1 {
   createPaymentPoint (input:{
     name: %s,
     locationId: %s,
-    ppmId: %s
+    ppmId: "%s"
   }) {
     clientMutationId
   }
@@ -40,7 +40,7 @@ mutation m1 {
     id: %s
     name: %s,
     locationId: %s,
-    ppmId: %s
+    ppmId: "%s"
   }) {
     clientMutationId
   }
