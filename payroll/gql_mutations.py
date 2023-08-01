@@ -8,14 +8,14 @@ from core.gql.gql_mutations.base_mutation import BaseHistoryModelCreateMutationM
     BaseHistoryModelUpdateMutationMixin, BaseHistoryModelDeleteMutationMixin
 from core.schema import OpenIMISMutation
 from payroll.apps import PayrollConfig
-from payroll.models import PaymentPoint
-from payroll.services import PaymentPointService
+from payroll.models import PaymentPoint, Payroll
+from payroll.services import PaymentPointService, PayrollService
 
 
 class CreatePaymentPointInputType(OpenIMISMutation.Input):
     name = graphene.String(required=True, max_length=255)
     location_id = graphene.Int(required=True)
-    ppm_id = graphene.Int(required=True)
+    ppm_id = graphene.UUID(required=True)
 
 
 class UpdatePaymentPointInputType(CreatePaymentPointInputType):
@@ -24,6 +24,20 @@ class UpdatePaymentPointInputType(CreatePaymentPointInputType):
 
 class DeletePaymentPointInputType(OpenIMISMutation.Input):
     ids = graphene.List(graphene.UUID, required=True)
+
+
+class CreatePayrollInput(OpenIMISMutation.Input):
+    name = graphene.String(required=True, max_length=255)
+    benefit_plan_id = graphene.UUID(required=True)
+    payment_point_id = graphene.UUID(required=True)
+
+    date_valid_from = graphene.Date(required=False)
+    date_valid_to = graphene.Date(required=False)
+    json_ext = graphene.JSONString(required=False)
+
+
+class DeletePayrollInputType(DeletePaymentPointInputType):
+    pass
 
 
 class CreatePaymentPointMutation(BaseHistoryModelCreateMutationMixin, BaseMutation):
@@ -97,4 +111,61 @@ class DeletePaymentPointMutation(BaseHistoryModelDeleteMutationMixin, BaseMutati
                     service.delete({'id': id})
 
     class Input(DeletePaymentPointInputType):
+        pass
+
+
+class CreatePayrollMutation(BaseHistoryModelCreateMutationMixin, BaseMutation):
+    _mutation_class = "CreatePayrollMutation"
+    _mutation_module = "payroll"
+    _model = Payroll
+
+    @classmethod
+    def _validate_mutation(cls, user, **data):
+        if type(user) is AnonymousUser or not user.has_perms(
+                PayrollConfig.gql_payroll_create_perms):
+            raise ValidationError("mutation.authentication_required")
+
+    @classmethod
+    def _mutate(cls, user, **data):
+        if "client_mutation_id" in data:
+            data.pop('client_mutation_id')
+        if "client_mutation_label" in data:
+            data.pop('client_mutation_label')
+
+        service = PayrollService(user)
+        response = service.create(data)
+        if not response['success']:
+            return response
+        return None
+
+    class Input(CreatePayrollInput):
+        pass
+
+
+class DeletePayrollMutation(BaseHistoryModelDeleteMutationMixin, BaseMutation):
+    _mutation_class = "DeletePayrollMutation"
+    _mutation_module = "payroll"
+    _model = Payroll
+
+    @classmethod
+    def _validate_mutation(cls, user, **data):
+        if type(user) is AnonymousUser or not user.has_perms(
+                PayrollConfig.gql_payroll_delete_perms):
+            raise ValidationError("mutation.authentication_required")
+
+    @classmethod
+    def _mutate(cls, user, **data):
+        if "client_mutation_id" in data:
+            data.pop('client_mutation_id')
+        if "client_mutation_label" in data:
+            data.pop('client_mutation_label')
+
+        service = PayrollService(user)
+        ids = data.get('ids')
+        if ids:
+            with transaction.atomic():
+                for id in ids:
+                    service.delete({'id': id})
+
+    class Input(DeletePayrollInputType):
         pass

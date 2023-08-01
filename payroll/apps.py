@@ -1,5 +1,7 @@
 from django.apps import AppConfig
 
+from core.custom_filters import CustomFilterRegistryPoint
+
 MODULE_NAME = 'payroll'
 
 DEFAULT_CONFIG = {
@@ -7,6 +9,9 @@ DEFAULT_CONFIG = {
     "gql_payment_point_create_perms": ["201002"],
     "gql_payment_point_update_perms": ["201003"],
     "gql_payment_point_delete_perms": ["201004"],
+    "gql_payroll_search_perms": ["202001"],
+    "gql_payroll_create_perms": ["202002"],
+    "gql_payroll_delete_perms": ["202004"],
 }
 
 
@@ -18,6 +23,9 @@ class PayrollConfig(AppConfig):
     gql_payment_point_create_perms = None
     gql_payment_point_update_perms = None
     gql_payment_point_delete_perms = None
+    gql_payroll_search_perms = None
+    gql_payroll_create_perms = None
+    gql_payroll_delete_perms = None
 
     def ready(self):
         from core.models import ModuleConfiguration
@@ -33,3 +41,9 @@ class PayrollConfig(AppConfig):
         for field in cfg:
             if hasattr(PayrollConfig, field):
                 setattr(PayrollConfig, field, cfg[field])
+
+        from social_protection.custom_filters import BenefitPlanCustomFilterWizard
+        CustomFilterRegistryPoint.register_custom_filters(
+            module_name=cls.name,
+            custom_filter_class_list=[BenefitPlanCustomFilterWizard]
+        )
