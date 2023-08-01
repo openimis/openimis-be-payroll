@@ -9,15 +9,13 @@ def move_to_uuid_field(apps, schema_editor):
     payment_point = apps.get_model('payroll', 'paymentpoint')
     historical_payment_point = apps.get_model('payroll', 'historicalpaymentpoint')
 
-    for historical_point in historical_payment_point.objects.using(db_alias).all():
-        core_user = user.objects.using(db_alias).filter(i_user__id=historical_point.ppm_id).first()
-        historical_point.ppm = core_user
-        historical_point.save()
+    historical_payment_point.objects.using(db_alias).update(
+        ppm=user.objects.using(db_alias).filter(i_user__id=models.F('i_user_id')).first()
+    )
 
-    for point in payment_point.objects.using(db_alias).all():
-        core_user = user.objects.usig(db_alias).filter(i_user__id=point.ppm_id).first()
-        point.ppm = core_user
-        point.save()
+    payment_point.objects.using(db_alias).update(
+        ppm=user.objects.using(db_alias).filter(i_user__id=models.F('i_user_id')).first()
+    )
 
 
 class Migration(migrations.Migration):
