@@ -1,7 +1,6 @@
 from django.db import models
 
-from core.fields import DateField
-from core.models import HistoryModel, InteractiveUser, HistoryBusinessModel
+from core.models import HistoryModel, HistoryBusinessModel, User
 from invoice.models import Bill
 from location.models import Location
 from social_protection.models import BenefitPlan
@@ -10,7 +9,7 @@ from social_protection.models import BenefitPlan
 class PaymentPoint(HistoryModel):
     name = models.CharField(max_length=255)
     location = models.ForeignKey(Location, models.DO_NOTHING)
-    ppm = models.ForeignKey(InteractiveUser, models.DO_NOTHING)
+    ppm = models.ForeignKey(User, models.DO_NOTHING)
 
 
 class Payroll(HistoryBusinessModel):

@@ -100,7 +100,7 @@ mutation m2 {
 }
 """
 
-gql_payroll_create_no_advanced_criteria = """
+gql_payroll_create_no_json_ext = """
 mutation m2 {
   createPayroll (input:{
                 name: "%s", 

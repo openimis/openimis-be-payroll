@@ -15,7 +15,7 @@ from payroll.services import PaymentPointService, PayrollService
 class CreatePaymentPointInputType(OpenIMISMutation.Input):
     name = graphene.String(required=True, max_length=255)
     location_id = graphene.Int(required=True)
-    ppm_id = graphene.Int(required=True)
+    ppm_id = graphene.UUID(required=True)
 
 
 class UpdatePaymentPointInputType(CreatePaymentPointInputType):

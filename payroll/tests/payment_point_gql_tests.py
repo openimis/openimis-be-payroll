@@ -52,23 +52,23 @@ class PaymentPointGQLTestCase(TestCase):
         payload = gql_payment_point_create % (
             json.dumps("Test"),
             self.location.id,
-            self.user.i_user.id
+            self.user.id
         )
         output = self.gql_client.execute(payload, context=self.gql_context)
         self.assertTrue(PaymentPoint.objects.filter(
-            name="Test", location_id=self.location.id, ppm_id=self.user.i_user.id, is_deleted=False).exists())
+            name="Test", location_id=self.location.id, ppm_id=self.user.id, is_deleted=False).exists())
 
     def test_create_unauthorized(self):
         payload = gql_payment_point_create % (
             json.dumps("Test"),
             self.location.id,
-            self.user.i_user.id)
+            self.user.id)
         output = self.gql_client.execute(payload, context=self.gql_context_unauthorized)
         self.assertFalse(PaymentPoint.objects.filter(
-            name="Test", location_id=self.location.id, ppm_id=self.user.i_user.id, is_deleted=False).exists())
+            name="Test", location_id=self.location.id, ppm_id=self.user.id, is_deleted=False).exists())
 
     def test_update(self):
-        payment_point = PaymentPoint(name="Test", location=self.location, ppm=self.user.i_user)
+        payment_point = PaymentPoint(name="Test", location=self.location, ppm=self.user)
         payment_point.save(username=self.user.username)
         payload = gql_payment_point_update % (
             json.dumps(str(payment_point.id)),
@@ -80,7 +80,7 @@ class PaymentPointGQLTestCase(TestCase):
         self.assertTrue(PaymentPoint.objects.filter(id=payment_point.id, name="TestUpdated", is_deleted=False).exists())
 
     def test_update_unauthorized(self):
-        payment_point = PaymentPoint(name="Test", location=self.location, ppm=self.user.i_user)
+        payment_point = PaymentPoint(name="Test", location=self.location, ppm=self.user)
         payment_point.save(username=self.user.username)
         payload = gql_payment_point_update % (
             json.dumps(str(payment_point.id)),
@@ -93,14 +93,14 @@ class PaymentPointGQLTestCase(TestCase):
             PaymentPoint.objects.filter(id=payment_point.id, name="TestUpdated", is_deleted=False).exists())
 
     def test_delete(self):
-        payment_point = PaymentPoint(name="Test", location=self.location, ppm=self.user.i_user)
+        payment_point = PaymentPoint(name="Test", location=self.location, ppm=self.user)
         payment_point.save(username=self.user.username)
         payload = gql_payment_point_delete % json.dumps([str(payment_point.id)])
         output = self.gql_client.execute(payload, context=self.gql_context)
         self.assertTrue(PaymentPoint.objects.filter(id=payment_point.id, is_deleted=True).exists())
 
     def test_delete_unauthorized(self):
-        payment_point = PaymentPoint(name="Test", location=self.location, ppm=self.user.i_user)
+        payment_point = PaymentPoint(name="Test", location=self.location, ppm=self.user)
         payment_point.save(username=self.user.username)
         payload = gql_payment_point_delete % json.dumps([str(payment_point.id)])
         output = self.gql_client.execute(payload, context=self.gql_context_unauthorized)

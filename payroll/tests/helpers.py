@@ -50,7 +50,7 @@ class PaymentPointHelper:
         payment_point = PaymentPoint(
             name=name,
             location=location,
-            ppm=user.i_user
+            ppm=user
         )
         payment_point.save(username=user.username)
         return payment_point
