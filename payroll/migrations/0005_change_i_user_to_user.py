@@ -10,7 +10,7 @@ def move_to_uuid_field(apps, schema_editor):
     historical_payment_point = apps.get_model('payroll', 'historicalpaymentpoint')
 
     for historical_point in historical_payment_point.objects.using(db_alias).all():
-        core_user = user.objects.usig(db_alias).filter(i_user__id=historical_point.ppm_id).first()
+        core_user = user.objects.using(db_alias).filter(i_user__id=historical_point.ppm_id).first()
         historical_point.ppm = core_user
         historical_point.save()
 
