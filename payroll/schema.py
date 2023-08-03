@@ -6,6 +6,9 @@ from django.db.models import Q
 
 from core.schema import OrderedDjangoFilterConnectionField
 from core.utils import append_validity_filter
+from invoice.gql.bill import BillQueryMixin
+from invoice.gql.gql_types.bill_types import BillGQLType
+from invoice.models import Bill
 from location.apps import LocationConfig
 from payroll.apps import PayrollConfig
 from payroll.gql_mutations import CreatePaymentPointMutation, UpdatePaymentPointMutation, DeletePaymentPointMutation, \
@@ -29,6 +32,37 @@ class Query(graphene.ObjectType):
         dateValidTo__Lte=graphene.DateTime(),
         client_mutation_id=graphene.String(),
     )
+
+    bill_by_payroll = OrderedDjangoFilterConnectionField(
+        BillGQLType,
+        orderBy=graphene.List(of_type=graphene.String),
+        dateValidFrom__Gte=graphene.DateTime(),
+        dateValidTo__Lte=graphene.DateTime(),
+        applyDefaultValidityFilter=graphene.Boolean(),
+        client_mutation_id=graphene.String(),
+        payroll_uuid=graphene.UUID(required=True)
+    )
+
+    def resolve_bill_by_payroll(self, info, **kwargs):
+        Query._check_permissions(info.context.user, PayrollConfig.gql_payroll_search_perms)
+        filters = [*append_validity_filter(**kwargs), Q(payrollbill__payroll_id=kwargs.get("payroll_uuid"),
+                                                        is_deleted=False,
+                                                        payrollbill__is_deleted=False,
+                                                        payrollbill__payroll__is_deleted=False)]
+
+        client_mutation_id = kwargs.get("client_mutation_id", None)
+        if client_mutation_id:
+            filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
+
+        subject_type = kwargs.get("subject_type", None)
+        if subject_type:
+            filters.append(Q(subject_type__model=subject_type))
+
+        thirdparty_type = kwargs.get("thirdparty_type", None)
+        if thirdparty_type:
+            filters.append(Q(thirdparty_type__model=thirdparty_type))
+
+        return gql_optimizer.query(Bill.objects.filter(*filters), info)
 
     def resolve_payment_point(self, info, **kwargs):
         Query._check_permissions(info.context.user, PayrollConfig.gql_payment_point_search_perms)
