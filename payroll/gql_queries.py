@@ -53,4 +53,6 @@ class PayrollGQLType(DjangoObjectType):
         connection_class = ExtendedConnection
 
     def resolve_bill(self, info):
-        return Bill.objects.filter(payrollbill__payroll__id=self.id)
+        return Bill.objects.filter(payrollbill__payroll__id=self.id,
+                                   is_deleted=False,
+                                   payrollbill__is_deleted=False)
