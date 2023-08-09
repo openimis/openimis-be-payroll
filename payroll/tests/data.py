@@ -91,6 +91,7 @@ mutation m2 {
                 name: "%s", 
                 benefitPlanId: "%s", 
                 paymentPointId: "%s"
+                status: %s
                 dateValidFrom: "%s"
                 dateValidTo: "%s"
                 jsonExt: "%s"
@@ -106,6 +107,7 @@ mutation m2 {
                 name: "%s", 
                 benefitPlanId: "%s", 
                 paymentPointId: "%s"
+                status: %s
                 dateValidFrom: "%s"
                 dateValidTo: "%s"
   }) {
