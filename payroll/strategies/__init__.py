@@ -1,0 +1,4 @@
+from payroll.strategies.strategy_of_payments_interface import StrategyOfPaymentInterface
+from payroll.strategies.strategy_mobile_payment import StrategyMobilePayment
+from payroll.strategies.strategy_online_payment import StrategyOnlinePayment
+from payroll.strategies.strategy_on_site_payments import StrategyOnSitePayment

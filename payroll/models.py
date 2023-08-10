@@ -27,6 +27,7 @@ class Payroll(HistoryBusinessModel):
     status = models.CharField(
         max_length=100, choices=PayrollStatus.choices, default=PayrollStatus.CREATED, null=False
     )
+    payment_method = models.CharField(max_length=255, blank=False, null=False)
 
 
 class PayrollBill(HistoryModel):

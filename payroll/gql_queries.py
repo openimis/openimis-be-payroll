@@ -57,3 +57,11 @@ class PayrollGQLType(DjangoObjectType):
         return Bill.objects.filter(payrollbill__payroll__id=self.id,
                                    is_deleted=False,
                                    payrollbill__is_deleted=False)
+
+
+class PaymentMethodGQLType(graphene.ObjectType):
+    name = graphene.String()
+
+
+class PaymentMethodListGQLType(graphene.ObjectType):
+    payment_methods = graphene.List(PaymentMethodGQLType)
