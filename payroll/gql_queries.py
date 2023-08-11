@@ -41,6 +41,7 @@ class PayrollGQLType(DjangoObjectType):
             "id": ["exact"],
             "name": ["iexact", "istartswith", "icontains"],
             "status": ["exact", "iexact", "startswith", "istartswith", "contains", "icontains"],
+            "payment_method": ["exact", "iexact", "startswith", "istartswith", "contains", "icontains"],
             **prefix_filterset("payment_point__", PaymentPointGQLType._meta.filter_fields),
             **prefix_filterset("benefit_plan__", BenefitPlanGQLType._meta.filter_fields),
 
