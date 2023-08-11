@@ -6,10 +6,9 @@ from django.db.models import Q
 
 from core.schema import OrderedDjangoFilterConnectionField
 from core.utils import append_validity_filter
-from invoice.gql.bill import BillQueryMixin
 from invoice.gql.gql_types.bill_types import BillGQLType
 from invoice.models import Bill
-from location.apps import LocationConfig
+from location.services import get_ancestor_location_filter
 from payroll.apps import PayrollConfig
 from payroll.gql_mutations import CreatePaymentPointMutation, UpdatePaymentPointMutation, DeletePaymentPointMutation, \
     CreatePayrollMutation, DeletePayrollMutation
@@ -77,20 +76,12 @@ class Query(graphene.ObjectType):
         if client_mutation_id:
             filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
 
-        # this code with parent_location and parent_location_level query args should be replaced with proper generic solution
         parent_location = kwargs.get('parent_location')
-        if parent_location is not None:
-            parent_location_level = kwargs.get('parent_location_level')
-            if parent_location_level is None:
-                raise NotImplementedError("Missing parentLocationLevel argument when filtering on parentLocation")
-            f = "uuid"
-            for i in range(len(LocationConfig.location_types) - parent_location_level - 1):
-                f = "parent__" + f
-            f = "location__" + f
-            filters += [Q(**{f: parent_location})]
+        if parent_location:
+            filters += [get_ancestor_location_filter(parent_location)]
 
         query = PaymentPoint.objects.filter(*filters)
-        gql_optimizer.query(query, info)
+        return gql_optimizer.query(query, info)
 
     def resolve_payroll(self, info, **kwargs):
         Query._check_permissions(info.context.user, PayrollConfig.gql_payroll_search_perms)
