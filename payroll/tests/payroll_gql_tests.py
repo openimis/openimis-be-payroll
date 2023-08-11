@@ -44,6 +44,7 @@ class PayrollGQLTestCase(TestCase):
         cls.gql_context_unauthorized = cls.GQLContext(cls.user_unauthorized)
         cls.name = "TestCreatePayroll"
         cls.status = "CREATED"
+        cls.payment_method = "TestPaymentMethod"
         cls.date_valid_from, cls.date_valid_to = cls.__get_start_and_end_of_current_month()
         cls.payment_point = PaymentPointHelper().get_or_create_payment_point_api()
         cls.benefit_plan = cls.__create_benefit_plan()
@@ -69,6 +70,7 @@ class PayrollGQLTestCase(TestCase):
             name,
             self.benefit_plan.id,
             self.payment_point.id,
+            self.payment_method,
             self.status,
             self.date_valid_from,
             self.date_valid_to,
@@ -79,6 +81,7 @@ class PayrollGQLTestCase(TestCase):
             name=name,
             benefit_plan_id=self.benefit_plan.id,
             payment_point_id=self.payment_point.id,
+            payment_method=self.payment_method,
             status=self.status,
             date_valid_from=self.date_valid_from,
             date_valid_to=self.date_valid_to,
@@ -91,6 +94,7 @@ class PayrollGQLTestCase(TestCase):
             name,
             self.benefit_plan.id,
             self.payment_point.id,
+            self.payment_method,
             self.status,
             self.date_valid_from,
             self.date_valid_to,
@@ -100,6 +104,7 @@ class PayrollGQLTestCase(TestCase):
             name=name,
             benefit_plan_id=self.benefit_plan.id,
             payment_point_id=self.payment_point.id,
+            payment_method=self.payment_method,
             status=self.status,
             date_valid_from=self.date_valid_from,
             date_valid_to=self.date_valid_to,
@@ -149,6 +154,7 @@ class PayrollGQLTestCase(TestCase):
             self.name,
             self.benefit_plan.id,
             self.payment_point.id,
+            self.payment_method,
             self.status,
             self.date_valid_from,
             self.date_valid_to,
@@ -160,6 +166,7 @@ class PayrollGQLTestCase(TestCase):
                 name=self.name,
                 benefit_plan_id=self.benefit_plan.id,
                 payment_point_id=self.payment_point.id,
+                payment_method=self.payment_method,
                 status=self.status,
                 date_valid_from=self.date_valid_from,
                 date_valid_to=self.date_valid_to,
@@ -172,6 +179,7 @@ class PayrollGQLTestCase(TestCase):
         payroll = Payroll(name=self.name,
                           benefit_plan_id=self.benefit_plan.id,
                           payment_point_id=self.payment_point.id,
+                          payment_method=self.payment_method,
                           status=self.status,
                           date_valid_from=self.date_valid_from,
                           date_valid_to=self.date_valid_to,
@@ -189,6 +197,7 @@ class PayrollGQLTestCase(TestCase):
         payroll = Payroll(name=self.name,
                           benefit_plan_id=self.benefit_plan.id,
                           payment_point_id=self.payment_point.id,
+                          payment_method=self.payment_method,
                           status=self.status,
                           date_valid_from=self.date_valid_from,
                           date_valid_to=self.date_valid_to,
