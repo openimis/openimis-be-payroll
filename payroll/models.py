@@ -9,7 +9,7 @@ from social_protection.models import BenefitPlan
 class PaymentPoint(HistoryModel):
     name = models.CharField(max_length=255)
     location = models.ForeignKey(Location, models.DO_NOTHING)
-    ppm = models.ForeignKey(User, models.DO_NOTHING)
+    ppm = models.ForeignKey(User, models.DO_NOTHING, null=True)
 
 
 class Payroll(HistoryBusinessModel):
