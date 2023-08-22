@@ -34,6 +34,7 @@ class PayrollConfig(AppConfig):
 
         cfg = ModuleConfiguration.get_or_default(self.name, DEFAULT_CONFIG)
         self.__load_config(cfg)
+        self.__register_filters_and_payment_methods()
 
     @classmethod
     def __load_config(cls, cfg):
@@ -44,6 +45,7 @@ class PayrollConfig(AppConfig):
             if hasattr(PayrollConfig, field):
                 setattr(PayrollConfig, field, cfg[field])
 
+    def __register_filters_and_payment_methods(cls):
         from social_protection.custom_filters import BenefitPlanCustomFilterWizard
         CustomFilterRegistryPoint.register_custom_filters(
             module_name=cls.name,

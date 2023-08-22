@@ -1,4 +1,7 @@
-class StrategyOfPaymentInterface:
+import abc
+
+
+class StrategyOfPaymentInterface(object,  metaclass=abc.ABCMeta):
 
     @classmethod
     def accept_payroll(cls, **kwargs):
