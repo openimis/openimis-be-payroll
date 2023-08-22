@@ -1,6 +1,8 @@
 from django.apps import AppConfig
 
 from core.custom_filters import CustomFilterRegistryPoint
+from payroll.payments_registry import PaymentsMethodRegistryPoint
+
 
 MODULE_NAME = 'payroll'
 
@@ -32,6 +34,7 @@ class PayrollConfig(AppConfig):
 
         cfg = ModuleConfiguration.get_or_default(self.name, DEFAULT_CONFIG)
         self.__load_config(cfg)
+        self.__register_filters_and_payment_methods()
 
     @classmethod
     def __load_config(cls, cfg):
@@ -42,8 +45,22 @@ class PayrollConfig(AppConfig):
             if hasattr(PayrollConfig, field):
                 setattr(PayrollConfig, field, cfg[field])
 
+    def __register_filters_and_payment_methods(cls):
         from social_protection.custom_filters import BenefitPlanCustomFilterWizard
         CustomFilterRegistryPoint.register_custom_filters(
             module_name=cls.name,
             custom_filter_class_list=[BenefitPlanCustomFilterWizard]
+        )
+
+        from payroll.strategies import (
+            StrategyOnlinePayment,
+            StrategyMobilePayment,
+            StrategyOnSitePayment
+        )
+        PaymentsMethodRegistryPoint.register_payment_method(
+            payment_method_class_list=[
+                StrategyOnlinePayment(),
+                StrategyMobilePayment(),
+                StrategyOnSitePayment()
+            ]
         )

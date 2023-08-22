@@ -40,6 +40,8 @@ class PayrollGQLType(DjangoObjectType):
         filter_fields = {
             "id": ["exact"],
             "name": ["iexact", "istartswith", "icontains"],
+            "status": ["exact", "startswith", "contains"],
+            "payment_method": ["exact", "startswith", "contains"],
             **prefix_filterset("payment_point__", PaymentPointGQLType._meta.filter_fields),
             **prefix_filterset("benefit_plan__", BenefitPlanGQLType._meta.filter_fields),
 
@@ -56,3 +58,11 @@ class PayrollGQLType(DjangoObjectType):
         return Bill.objects.filter(payrollbill__payroll__id=self.id,
                                    is_deleted=False,
                                    payrollbill__is_deleted=False)
+
+
+class PaymentMethodGQLType(graphene.ObjectType):
+    name = graphene.String()
+
+
+class PaymentMethodListGQLType(graphene.ObjectType):
+    payment_methods = graphene.List(PaymentMethodGQLType)

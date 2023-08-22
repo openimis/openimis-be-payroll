@@ -8,7 +8,7 @@ from core.gql.gql_mutations.base_mutation import BaseHistoryModelCreateMutationM
     BaseHistoryModelUpdateMutationMixin, BaseHistoryModelDeleteMutationMixin
 from core.schema import OpenIMISMutation
 from payroll.apps import PayrollConfig
-from payroll.models import PaymentPoint, Payroll
+from payroll.models import PaymentPoint, Payroll, PayrollStatus
 from payroll.services import PaymentPointService, PayrollService
 
 
@@ -27,9 +27,17 @@ class DeletePaymentPointInputType(OpenIMISMutation.Input):
 
 
 class CreatePayrollInput(OpenIMISMutation.Input):
+    class PayrollStatusEnum(graphene.Enum):
+        CREATED = PayrollStatus.CREATED
+        ONGOING = PayrollStatus.ONGOING
+        AWAITING_FOR_RECONCILIATION = PayrollStatus.AWAITING_FOR_RECONCILIATION
+        RECONCILIATED = PayrollStatus.RECONCILIATED
+
     name = graphene.String(required=True, max_length=255)
     benefit_plan_id = graphene.UUID(required=True)
     payment_point_id = graphene.UUID(required=True)
+    status = graphene.Field(PayrollStatusEnum, required=True)
+    payment_method = graphene.String(required=True, max_length=255)
 
     date_valid_from = graphene.Date(required=False)
     date_valid_to = graphene.Date(required=False)

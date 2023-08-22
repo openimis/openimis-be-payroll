@@ -12,8 +12,9 @@ from location.services import get_ancestor_location_filter
 from payroll.apps import PayrollConfig
 from payroll.gql_mutations import CreatePaymentPointMutation, UpdatePaymentPointMutation, DeletePaymentPointMutation, \
     CreatePayrollMutation, DeletePayrollMutation
-from payroll.gql_queries import PaymentPointGQLType, PayrollGQLType
+from payroll.gql_queries import PaymentPointGQLType, PayrollGQLType, PaymentMethodGQLType, PaymentMethodListGQLType
 from payroll.models import PaymentPoint, Payroll
+from payroll.payments_registry import PaymentMethodStorage
 
 
 class Query(graphene.ObjectType):
@@ -40,6 +41,10 @@ class Query(graphene.ObjectType):
         applyDefaultValidityFilter=graphene.Boolean(),
         client_mutation_id=graphene.String(),
         payroll_uuid=graphene.UUID(required=True)
+    )
+
+    payment_methods = graphene.Field(
+        PaymentMethodListGQLType,
     )
 
     def resolve_bill_by_payroll(self, info, **kwargs):
@@ -88,6 +93,26 @@ class Query(graphene.ObjectType):
 
         query = Payroll.objects.filter(*filters)
         return gql_optimizer.query(query, info)
+
+    def resolve_payment_methods(self, info, **kwargs):
+        user = info.context.user
+        if type(user) is AnonymousUser or not user.id:
+            raise PermissionError("Unauthorized")
+
+        payment_methods = PaymentMethodStorage.get_all_available_payment_methods()
+        gql_payment_methods = Query._build_payment_method_options(payment_methods)
+        return PaymentMethodListGQLType(gql_payment_methods)
+
+    @staticmethod
+    def _build_payment_method_options(payment_methods):
+        gql_payment_methods = []
+        for payment_method in payment_methods:
+            gql_payment_methods.append(
+                PaymentMethodGQLType(
+                    name=payment_method['name']
+                )
+            )
+        return gql_payment_methods
 
     @staticmethod
     def _check_permissions(user, perms):
