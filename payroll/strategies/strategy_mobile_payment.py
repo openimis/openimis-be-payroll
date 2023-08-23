@@ -4,5 +4,5 @@ from payroll.strategies.strategy_of_payments_interface import StrategyOfPaymentI
 class StrategyMobilePayment(StrategyOfPaymentInterface):
 
     @classmethod
-    def accept_payroll(cls, **kwargs):
+    def accept_payroll(cls, payroll, user, **kwargs):
         pass

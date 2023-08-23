@@ -34,3 +34,9 @@ class PayrollBill(HistoryModel):
     # 1:n it is ensured by the service
     payroll = models.ForeignKey(Payroll, on_delete=models.DO_NOTHING)
     bill = models.ForeignKey(Bill, on_delete=models.DO_NOTHING)
+
+
+class PaymentAdaptorHistory(HistoryModel):
+    payroll = models.ForeignKey(Payroll, on_delete=models.DO_NOTHING)
+    total_amount = models.CharField(max_length=255, blank=True, null=True)
+    bills_ids = models.JSONField()
