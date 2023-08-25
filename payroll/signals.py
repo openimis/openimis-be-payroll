@@ -31,8 +31,6 @@ def bind_service_signals():
                 if task_status == Task.Status.COMPLETED:
                     payroll = task['entity']
                     accept_payroll(payroll, user)
-                else:
-                    pass
         except Exception as e:
             logger.error("Error while executing on_task_complete_accept_payroll", exc_info=e)
 
