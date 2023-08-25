@@ -6,6 +6,7 @@ from core.signals import bind_service_signal
 from openIMIS.openimisapps import openimis_apps
 from tasks_management.models import Task
 from payroll.apps import PayrollConfig
+from payroll.models import Payroll
 from payroll.payments_registry import PaymentMethodStorage
 
 
@@ -29,13 +30,13 @@ def bind_service_signals():
                     and task['business_event'] == PayrollConfig.payroll_business_event:
                 task_status = task['status']
                 if task_status == Task.Status.COMPLETED:
-                    payroll = task['entity']
+                    payroll = Payroll.objects.get(id=task['entity_id'])
                     accept_payroll(payroll, user)
-        except Exception as e:
-            logger.error("Error while executing on_task_complete_accept_payroll", exc_info=e)
+        except Exception as exc:
+            logger.error("Error while executing on_task_complete_accept_payroll", exc_info=exc)
 
     bind_service_signal(
-        'payroll_service.create_task',
+        'task_service.complete_task',
         on_task_complete_accept_payroll,
         bind_type=ServiceSignalBindType.AFTER
     )

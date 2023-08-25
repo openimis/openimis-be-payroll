@@ -45,3 +45,6 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         from payroll.models import PayrollStatus
         payroll.status = PayrollStatus.ONGOING
         payroll.save(username=user.login_name)
+
+    def acknowledge_of_reponse_view(self):
+        pass

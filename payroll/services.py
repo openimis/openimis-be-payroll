@@ -57,6 +57,8 @@ class PayrollService(BaseService):
                 dict_representation = self.save_instance(obj_)
                 payroll_id = dict_representation["data"]["id"]
                 self._create_payroll_bills(bills_queryset, payroll_id)
+                # create task for accepting or rejecting payroll
+                self._create_accept_payroll_task(payroll_id, obj_data)
                 return dict_representation
         except Exception as exc:
             return output_exception(model_name=self.OBJECT_TYPE.__name__, method="create", exception=exc)
@@ -78,8 +80,8 @@ class PayrollService(BaseService):
             return output_exception(model_name=self.OBJECT_TYPE.__name__, method="delete", exception=exc)
 
     @register_service_signal('payroll_service.create_task')
-    def accept_payroll(self, obj_data):
-        payroll_to_accept = Payroll.objects.get(id=obj_data['id'])
+    def _create_accept_payroll_task(self, payroll_id, obj_data):
+        payroll_to_accept = Payroll.objects.get(id=payroll_id)
         TaskService(self.user).create({
             'source': 'payroll',
             'entity': payroll_to_accept,
