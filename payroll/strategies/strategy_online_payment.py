@@ -6,9 +6,8 @@ from workflow.systems.base import WorkflowHandler
 
 
 class StrategyOnlinePayment(StrategyOfPaymentInterface):
-    # TODO - change the workflow name and group
     WORKFLOW_NAME = "payment-adaptor"
-    WORKFLOW_GROUP = "imisstarterproject"
+    WORKFLOW_GROUP = "openimis-coremis-payment-adaptor"
 
     @classmethod
     def accept_payroll(cls, payroll, user, **kwargs):

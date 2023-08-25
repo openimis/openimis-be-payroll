@@ -17,8 +17,6 @@ def bind_service_signals():
 
     def on_task_complete_accept_payroll(**kwargs):
         def accept_payroll(payroll, user):
-            # TODO - add here the implementation scenario of accepting payroll by
-            #  triggering relevant strategy based on payroll field 'payment_method'
             strategy = PaymentMethodStorage.get_chosen_payment_method(payroll.payment_method)
             if strategy:
                 strategy.accept_payroll(payroll, user)
