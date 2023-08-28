@@ -23,6 +23,12 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
 
     @classmethod
     def _get_payroll_bills_amount(cls, payroll):
+        bills = cls._get_bill_attached_to_payroll(payroll)
+        total_amount = str(bills.aggregate(total_amount=Sum('amount_total'))['total_amount'])
+        return total_amount
+
+    @classmethod
+    def _get_bill_attached_to_payroll(cls, payroll):
         from invoice.models import Bill
         filters = [Q(payrollbill__payroll_id=payroll.uuid,
                      is_deleted=False,
@@ -31,8 +37,7 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
                      status=Bill.Status.VALIDATED
                      )]
         bills = Bill.objects.filter(*filters)
-        total_amount = str(bills.aggregate(total_amount=Sum('amount_total'))['total_amount'])
-        return total_amount
+        return bills
 
     @classmethod
     def _send_data_to_adaptor(cls, workflow: WorkflowHandler, payroll, user, **kwargs):
@@ -46,5 +51,14 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         payroll.status = PayrollStatus.ONGOING
         payroll.save(username=user.login_name)
 
-    def acknowledge_of_reponse_view(self):
-        pass
+    @classmethod
+    def acknowledge_of_reponse_view(cls, payroll, response_from_gateway, user):
+        # save response coming from payment gateway in json_ext
+        from payroll.models import PayrollStatus
+        payroll.json_ext = response_from_gateway
+        payroll.status = PayrollStatus.AWAITING_FOR_RECONCILIATION
+        payroll.save(username=user.username)
+        # update bill attached to the payroll
+        from invoice.models import Bill
+        bills = cls._get_bill_attached_to_payroll(payroll)
+        bills.update(status=Bill.Status.PAYED)

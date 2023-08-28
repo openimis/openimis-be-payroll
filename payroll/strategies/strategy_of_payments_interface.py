@@ -8,5 +8,5 @@ class StrategyOfPaymentInterface(object,  metaclass=abc.ABCMeta):
         pass
 
     @classmethod
-    def process_callback_from_adaptor(cls):
+    def acknowledge_of_reponse_view(cls, payroll, response_from_gateway, user):
         pass
