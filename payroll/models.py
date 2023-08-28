@@ -29,6 +29,9 @@ class Payroll(HistoryBusinessModel):
     )
     payment_method = models.CharField(max_length=255, blank=True, null=True)
 
+    def __str__(self):
+        return f"Payroll {self.name} - {self.uuid}"
+
 
 class PayrollBill(HistoryModel):
     # 1:n it is ensured by the service
