@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 @api_view(["POST"])
-#@permission_classes([check_user_rights(PayrollConfig.gql_payroll_create_perms, )])
+@permission_classes([check_user_rights(PayrollConfig.gql_payroll_create_perms, )])
 def send_callback_to_openimis(request):
     try:
         user = request.user
