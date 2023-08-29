@@ -22,7 +22,7 @@ def send_callback_to_openimis(request):
         if strategy:
             # save the reponse from gateway in openIMIS
             strategy.acknowledge_of_reponse_view(payroll, response_from_gateway, user)
-        return Response('true')
+        return Response({'success': True, 'error': None}, status=201)
     except ValueError as exc:
         logger.error("Error while sending callback to openIMIS", exc_info=exc)
         return Response({'success': False, 'error': str(exc)}, status=400)
