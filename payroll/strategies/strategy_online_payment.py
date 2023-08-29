@@ -55,7 +55,9 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
     def acknowledge_of_reponse_view(cls, payroll, response_from_gateway, user):
         # save response coming from payment gateway in json_ext
         from payroll.models import PayrollStatus
-        payroll.json_ext = response_from_gateway
+        json_ext = payroll.json_ext
+        json_ext['response_from_gateway'] = response_from_gateway
+        payroll.json_ext = json_ext
         payroll.status = PayrollStatus.AWAITING_FOR_RECONCILIATION
         payroll.save(username=user.username)
         # update bill attached to the payroll
