@@ -36,8 +36,8 @@ def _resolve_send_callback_to_imis_args(request):
     response_from_gateway = request.data.get('response_from_gateway')
     print('xx', payroll_id, response_from_gateway)
     if not payroll_id:
-        raise ValueError(f'Payroll Id not provided')
+        raise ValueError('Payroll Id not provided')
     if not response_from_gateway:
-        raise ValueError(f'Response from gateway not provided')
+        raise ValueError('Response from gateway not provided')
 
     return payroll_id, response_from_gateway
