@@ -15,6 +15,13 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         cls._send_data_to_adaptor(workflow, payroll, user, **kwargs)
 
     @classmethod
+    def acknowledge_of_reponse_view(cls, payroll, response_from_gateway, user):
+        # save response coming from payment gateway in json_ext
+        cls._save_payroll_data(payroll, user, response_from_gateway)
+        # update bill attached to the payroll
+        cls._save_bill_data(payroll)
+
+    @classmethod
     def _get_payment_workflow(cls, workflow_name: str, workflow_group: str):
         result = WorkflowService.get_workflows(workflow_name, workflow_group)
         workflows = result.get('data', {}).get('workflows')
@@ -52,15 +59,16 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         payroll.save(username=user.login_name)
 
     @classmethod
-    def acknowledge_of_reponse_view(cls, payroll, response_from_gateway, user):
-        # save response coming from payment gateway in json_ext
+    def _save_payroll_data(cls, payroll, user, response_from_gateway):
         from payroll.models import PayrollStatus
         json_ext = payroll.json_ext
         json_ext['response_from_gateway'] = response_from_gateway
         payroll.json_ext = json_ext
         payroll.status = PayrollStatus.AWAITING_FOR_RECONCILIATION
         payroll.save(username=user.username)
-        # update bill attached to the payroll
+
+    @classmethod
+    def _save_bill_data(cls, payroll):
         from invoice.models import Bill
         bills = cls._get_bill_attached_to_payroll(payroll)
         bills.update(status=Bill.Status.PAYED)
