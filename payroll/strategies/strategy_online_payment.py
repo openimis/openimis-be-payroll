@@ -88,7 +88,7 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
     def _create_payroll_reconcilation_task(self, payroll, user):
         from payroll.apps import PayrollConfig
         TaskService(user).create({
-            'source': 'payroll',
+            'source': 'payroll_reconciliation',
             'entity': payroll,
             'status': Task.Status.RECEIVED,
             'executor_action_event': TasksManagementConfig.default_executor_event,
