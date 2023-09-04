@@ -81,8 +81,9 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         bills = cls._get_bill_attached_to_payroll(payroll)
         bills.update(status=Bill.Status.PAYED)
 
+    @classmethod
     @register_service_signal('online_payments.create_task')
-    def _create_payroll_reconcilation_task(self, payroll, user):
+    def _create_payroll_reconcilation_task(cls, payroll, user):
         from payroll.apps import PayrollConfig
         from tasks_management.services import TaskService
         from tasks_management.apps import TasksManagementConfig
