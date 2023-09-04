@@ -10,3 +10,7 @@ class StrategyOfPaymentInterface(object,  metaclass=abc.ABCMeta):
     @classmethod
     def acknowledge_of_reponse_view(cls, payroll, response_from_gateway, user):
         pass
+
+    @classmethod
+    def reconcile_payroll(cls, payroll, user):
+        pass

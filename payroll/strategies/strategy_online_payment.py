@@ -1,6 +1,10 @@
 from django.db.models import Q, Sum
 
+from core.signals import register_service_signal
 from payroll.strategies.strategy_of_payments_interface import StrategyOfPaymentInterface
+from tasks_management.services import TaskService
+from tasks_management.apps import TasksManagementConfig
+from tasks_management.models import Task
 from workflow.services import WorkflowService
 from workflow.systems.base import WorkflowHandler
 
@@ -20,6 +24,12 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         cls._save_payroll_data(payroll, user, response_from_gateway)
         # update bill attached to the payroll
         cls._save_bill_data(payroll)
+
+    @classmethod
+    def reconcile_payroll(cls, payroll, user):
+        from payroll.models import PayrollStatus
+        payroll.status = PayrollStatus.RECONCILIATED
+        payroll.save(username=user.username)
 
     @classmethod
     def _get_payment_workflow(cls, workflow_name: str, workflow_group: str):
@@ -66,9 +76,21 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         payroll.json_ext = json_ext
         payroll.status = PayrollStatus.AWAITING_FOR_RECONCILIATION
         payroll.save(username=user.username)
+        cls._create_payroll_reconcilation_task(payroll, user)
 
     @classmethod
     def _save_bill_data(cls, payroll):
         from invoice.models import Bill
         bills = cls._get_bill_attached_to_payroll(payroll)
         bills.update(status=Bill.Status.PAYED)
+
+    @register_service_signal('online_payments.create_task')
+    def _create_payroll_reconcilation_task(self, payroll, user):
+        from payroll.apps import PayrollConfig
+        TaskService(user).create({
+            'source': 'payroll',
+            'entity': payroll,
+            'status': Task.Status.RECEIVED,
+            'executor_action_event': TasksManagementConfig.default_executor_event,
+            'business_event': PayrollConfig.payroll_reconciliation_event,
+        })

@@ -14,7 +14,8 @@ DEFAULT_CONFIG = {
     "gql_payroll_search_perms": ["202001"],
     "gql_payroll_create_perms": ["202002"],
     "gql_payroll_delete_perms": ["202004"],
-    "payroll_business_event": "payroll.accept_payroll"
+    "payroll_accept_event": "payroll.accept_payroll",
+    "payroll_reconciliation_event": "payroll.payroll_reconciliation"
 }
 
 
@@ -29,7 +30,8 @@ class PayrollConfig(AppConfig):
     gql_payroll_search_perms = None
     gql_payroll_create_perms = None
     gql_payroll_delete_perms = None
-    payroll_business_event = None
+    payroll_accept_event = None
+    payroll_reconciliation_event = None
 
     def ready(self):
         from core.models import ModuleConfiguration

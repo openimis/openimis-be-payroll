@@ -87,7 +87,7 @@ class PayrollService(BaseService):
             'entity': payroll_to_accept,
             'status': Task.Status.RECEIVED,
             'executor_action_event': TasksManagementConfig.default_executor_event,
-            'business_event': PayrollConfig.payroll_business_event,
+            'business_event': PayrollConfig.payroll_accept_event,
             'data': f"{obj_data}"
         })
 
