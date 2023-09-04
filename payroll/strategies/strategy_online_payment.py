@@ -2,9 +2,6 @@ from django.db.models import Q, Sum
 
 from core.signals import register_service_signal
 from payroll.strategies.strategy_of_payments_interface import StrategyOfPaymentInterface
-from tasks_management.services import TaskService
-from tasks_management.apps import TasksManagementConfig
-from tasks_management.models import Task
 from workflow.services import WorkflowService
 from workflow.systems.base import WorkflowHandler
 
@@ -87,6 +84,9 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
     @register_service_signal('online_payments.create_task')
     def _create_payroll_reconcilation_task(self, payroll, user):
         from payroll.apps import PayrollConfig
+        from tasks_management.services import TaskService
+        from tasks_management.apps import TasksManagementConfig
+        from tasks_management.models import Task
         TaskService(user).create({
             'source': 'payroll_reconciliation',
             'entity': payroll,
