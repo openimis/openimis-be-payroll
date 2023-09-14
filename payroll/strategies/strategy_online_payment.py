@@ -28,7 +28,7 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         bills = cls._get_bill_attached_to_payroll(payroll)
         # make the new invoice based on Unpaid status
         from core import datetime
-        current_date = datetime.date.now()
+        current_date = datetime.date.today()
         # Define the common data for new 'Validated' bills
         common_data = {
             "status": Bill.Status.VALIDATED,
