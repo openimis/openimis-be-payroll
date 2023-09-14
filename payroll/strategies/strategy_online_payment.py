@@ -42,10 +42,10 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
             }
             bill.replace_object(new_data)
 
-        for bill in bills.filter(status=Bill.Status.PAID):
+        for bill in bills.filter(status=Bill.Status.PAYED):
             cls._create_bill_payment_for_paid_bill(bill, user, current_date)
 
-        bills = bills.filter(status=Bill.Status.PAID)
+        bills = bills.filter(status=Bill.Status.PAYED)
         bills.update(status=Bill.Status.RECONCILIATED)
         from payroll.models import PayrollStatus
         payroll.status = PayrollStatus.RECONCILIATED
