@@ -40,14 +40,12 @@ def send_callback_to_openimis(request):
 def _resolve_send_callback_to_imis_args(request):
     payroll_id = request.data.get('payroll_id')
     response_from_gateway = request.data.get('response_from_gateway')
-    rejected_bills = request.data.get('rejected_bills', " ")
-    print(not rejected_bills)
-    print(rejected_bills)
+    rejected_bills = request.data.get('rejected_bills')
     if not payroll_id:
         raise ValueError('Payroll Id not provided')
     if not response_from_gateway:
         raise ValueError('Response from gateway not provided')
-    if not rejected_bills:
+    if rejected_bills is None:
         raise ValueError('Rejected Bills not provided')
 
     return payroll_id, response_from_gateway, rejected_bills
