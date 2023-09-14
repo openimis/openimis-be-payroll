@@ -16,11 +16,11 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         cls._send_data_to_adaptor(workflow, payroll, user, **kwargs)
 
     @classmethod
-    def acknowledge_of_reponse_view(cls, payroll, response_from_gateway, user):
+    def acknowledge_of_reponse_view(cls, payroll, response_from_gateway, user, rejected_bills):
         # save response coming from payment gateway in json_ext
         cls._save_payroll_data(payroll, user, response_from_gateway)
         # update bill attached to the payroll
-        cls._save_bill_data(payroll)
+        cls._save_bill_data(payroll, rejected_bills)
 
     @classmethod
     def reconcile_payroll(cls, payroll, user):
@@ -54,12 +54,21 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         return bills
 
     @classmethod
+    def _get_bills_to_string(cls, bills):
+        bill_uuids = [str(bill.uuid) for bill in bills]
+        bill_uuids_string = ",".join(bill_uuids)
+        return bill_uuids_string
+
+    @classmethod
     def _send_data_to_adaptor(cls, workflow: WorkflowHandler, payroll, user, **kwargs):
         total_amount = cls._get_payroll_bills_amount(payroll)
+        bills = cls._get_bill_attached_to_payroll(payroll)
+        bill_uuids_string = cls._get_bills_to_string(bills)
         workflow.run({
             'user_uuid': str(user.id),
             'payroll_uuid': str(payroll.uuid),
             'payroll_amount': total_amount,
+            'bills': bill_uuids_string,
         })
         from payroll.models import PayrollStatus
         payroll.status = PayrollStatus.ONGOING
@@ -76,10 +85,19 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         cls._create_payroll_reconcilation_task(payroll, user)
 
     @classmethod
-    def _save_bill_data(cls, payroll):
+    def _save_bill_data(cls, payroll, rejected_bills):
         from invoice.models import Bill
-        bills = cls._get_bill_attached_to_payroll(payroll)
+        rejected_bills, bills = cls._exclude_rejected_bills(payroll, rejected_bills)
         bills.update(status=Bill.Status.PAYED)
+        rejected_bills.update(status=Bill.Status.UNPAID)
+
+    @classmethod
+    def _exclude_rejected_bills(cls, payroll, rejected_bills):
+        rejected_uuids = [uuid.strip() for uuid in rejected_bills.split(',') if uuid.strip()]
+        include_query = Q(uuid__in=rejected_uuids)
+        rejected_bills_queryset = cls._get_bill_attached_to_payroll(payroll).filter(include_query)
+        bills = cls._get_bill_attached_to_payroll(payroll).exclude(include_query)
+        return rejected_bills_queryset, bills
 
     @classmethod
     @register_service_signal('online_payments.create_task')
