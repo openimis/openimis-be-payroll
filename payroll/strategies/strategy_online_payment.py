@@ -24,9 +24,65 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
 
     @classmethod
     def reconcile_payroll(cls, payroll, user):
+        from invoice.models import Bill
+        bills = cls._get_bill_attached_to_payroll(payroll)
+        # make the new invoice based on Unpaid status
+        from core import datetime
+        current_date = datetime.date.now()
+        # Define the common data for new 'Validated' bills
+        common_data = {
+            "status": Bill.Status.VALIDATED,
+            "dateBill": current_date,
+        }
+
+        for bill in bills.filter(status=Bill.Status.UNPAID):
+            new_data = {
+                **common_data,
+                "code": f"{bill.code}-{current_date}-Unpaid",
+            }
+            bill.replace_object(new_data)
+
+        for bill in bills.filter(status=Bill.Status.PAID):
+            cls._create_bill_payment_for_paid_bill(bill, user, current_date)
+
+        bills = bills.filter(status=Bill.Status.PAID)
+        bills.update(status=Bill.Status.RECONCILIATED)
         from payroll.models import PayrollStatus
         payroll.status = PayrollStatus.RECONCILIATED
         payroll.save(username=user.username)
+
+    @classmethod
+    def _create_bill_payment_for_paid_bill(cls, bill, user, current_date):
+        from invoice.models import DetailPaymentInvoice, PaymentInvoice
+        from invoice.services import PaymentInvoiceService
+        # Create a BillPayment object for the 'Paid' bill
+        bill_payment = {
+            "bill_id": bill,
+            "code_tp": bill.code_tp,
+            "code_ext": bill.code_ext,
+            "code_receipt": bill.code_receipt,
+            "label": bill.terms,
+            'reconciliation_status': PaymentInvoice.ReconciliationStatus.RECONCILIATED,
+            "fees": 0.0,
+            "amount_received": bill.amount_total,
+            "date_payment": current_date,
+            'payment_origin': bill.payment_origin,
+            'payer_ref': 'payment reference',
+            'payer_name': 'payer name'
+        }
+
+        bill_payment_details = {
+            'subject_type': 'bill',
+            'subject_id': bill.id,
+            'status': DetailPaymentInvoice.DetailPaymentStatus.ACCEPTED,
+            'fees': 0.0,
+            'amount': bill.amount_total,
+            'reconcilation_id': '',
+            'reconcilation_date': current_date,
+        }
+        bill_payment_details = DetailPaymentInvoice(**bill_payment_details)
+        payment_service = PaymentInvoiceService(user)
+        payment_service.create_with_detail(bill_payment, bill_payment_details)
 
     @classmethod
     def _get_payment_workflow(cls, workflow_name: str, workflow_group: str):
