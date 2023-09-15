@@ -24,17 +24,14 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
 
     @classmethod
     def reconcile_payroll(cls, payroll, user):
-        print('xxxxxxx')
         from invoice.models import Bill
         from core import datetime
         current_date = datetime.date.today()
-        print(current_date)
         common_data = {
             "status": Bill.Status.VALIDATED,
             "dateBill": current_date,
         }
         unpaid_bills = cls._get_bill_attached_to_payroll(payroll, Bill.Status.UNPAID)
-        print(unpaid_bills)
         for bill in unpaid_bills:
             new_data = {
                 **common_data,
@@ -58,7 +55,6 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         from invoice.services import PaymentInvoiceService
         # Create a BillPayment object for the 'Paid' bill
         bill_payment = {
-            "bill_id": bill,
             "code_tp": bill.code_tp,
             "code_ext": bill.code_ext,
             "code_receipt": bill.code,
@@ -69,7 +65,8 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
             "date_payment": current_date,
             'payment_origin': "online payment",
             'payer_ref': 'payment reference',
-            'payer_name': 'payer name'
+            'payer_name': 'payer name',
+            "json_ext": {}
         }
 
         bill_payment_details = {
