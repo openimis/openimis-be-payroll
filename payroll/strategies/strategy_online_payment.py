@@ -66,7 +66,7 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
             "fees": 0.0,
             "amount_received": bill.amount_total,
             "date_payment": current_date,
-            'payment_origin': bill.payment_origin,
+            'payment_origin': "online payment",
             'payer_ref': 'payment reference',
             'payer_name': 'payer name'
         }
