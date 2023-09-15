@@ -40,7 +40,7 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
                 **common_data,
                 "code": f"{bill.code}-{current_date}-Unpaid",
             }
-            bill.replace_object(new_data)
+            bill.replace_object(data=new_data, username=user.username)
 
         paid_bills = cls._get_bill_attached_to_payroll(payroll, Bill.Status.PAYED)
         for bill in paid_bills:
