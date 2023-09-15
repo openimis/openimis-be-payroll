@@ -24,28 +24,35 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
 
     @classmethod
     def reconcile_payroll(cls, payroll, user):
+        print('xxxxxxx')
         from invoice.models import Bill
         bills = cls._get_bill_attached_to_payroll(payroll)
+        print(bills)
         # make the new invoice based on Unpaid status
         from core import datetime
         current_date = datetime.date.today()
+        print(current_date)
         # Define the common data for new 'Validated' bills
         common_data = {
             "status": Bill.Status.VALIDATED,
             "dateBill": current_date,
         }
-
-        for bill in bills.filter(status=Bill.Status.UNPAID):
+        unpaid_bills = bills.filter(status=Bill.Status.UNPAID)
+        print(unpaid_bills)
+        for bill in unpaid_bills:
             new_data = {
                 **common_data,
                 "code": f"{bill.code}-{current_date}-Unpaid",
             }
             bill.replace_object(new_data)
 
-        for bill in bills.filter(status=Bill.Status.PAYED):
+        paid_bills = bills.filter(Bill.Status.PAYED)
+        print(paid_bills)
+        for bill in paid_bills:
             cls._create_bill_payment_for_paid_bill(bill, user, current_date)
 
         bills = bills.filter(status=Bill.Status.PAYED)
+        print(bills)
         bills.update(status=Bill.Status.RECONCILIATED)
         from payroll.models import PayrollStatus
         payroll.status = PayrollStatus.RECONCILIATED
