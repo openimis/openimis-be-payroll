@@ -26,18 +26,14 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
     def reconcile_payroll(cls, payroll, user):
         print('xxxxxxx')
         from invoice.models import Bill
-        bills = cls._get_bill_attached_to_payroll(payroll)
-        print(bills)
-        # make the new invoice based on Unpaid status
         from core import datetime
         current_date = datetime.date.today()
         print(current_date)
-        # Define the common data for new 'Validated' bills
         common_data = {
             "status": Bill.Status.VALIDATED,
             "dateBill": current_date,
         }
-        unpaid_bills = bills.filter(status=Bill.Status.UNPAID)
+        unpaid_bills = cls._get_bill_attached_to_payroll(payroll, Bill.Status.UNPAID)
         print(unpaid_bills)
         for bill in unpaid_bills:
             new_data = {
@@ -46,14 +42,11 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
             }
             bill.replace_object(new_data)
 
-        paid_bills = bills.filter(Bill.Status.PAYED)
-        print(paid_bills)
+        paid_bills = cls._get_bill_attached_to_payroll(payroll, Bill.Status.PAYED)
         for bill in paid_bills:
             cls._create_bill_payment_for_paid_bill(bill, user, current_date)
 
-        bills = bills.filter(status=Bill.Status.PAYED)
-        print(bills)
-        bills.update(status=Bill.Status.RECONCILIATED)
+        paid_bills.update(status=Bill.Status.RECONCILIATED)
         from payroll.models import PayrollStatus
         payroll.status = PayrollStatus.RECONCILIATED
         payroll.save(username=user.username)
@@ -99,19 +92,19 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         return workflow
 
     @classmethod
-    def _get_payroll_bills_amount(cls, payroll):
-        bills = cls._get_bill_attached_to_payroll(payroll)
+    def _get_payroll_bills_amount(cls, payroll, status):
+        bills = cls._get_bill_attached_to_payroll(payroll, status)
         total_amount = str(bills.aggregate(total_amount=Sum('amount_total'))['total_amount'])
         return total_amount
 
     @classmethod
-    def _get_bill_attached_to_payroll(cls, payroll):
+    def _get_bill_attached_to_payroll(cls, payroll, status):
         from invoice.models import Bill
         filters = [Q(payrollbill__payroll_id=payroll.uuid,
                      is_deleted=False,
                      payrollbill__is_deleted=False,
                      payrollbill__payroll__is_deleted=False,
-                     status=Bill.Status.VALIDATED
+                     status=status
                      )]
         bills = Bill.objects.filter(*filters)
         return bills
@@ -124,8 +117,9 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
 
     @classmethod
     def _send_data_to_adaptor(cls, workflow: WorkflowHandler, payroll, user, **kwargs):
-        total_amount = cls._get_payroll_bills_amount(payroll)
-        bills = cls._get_bill_attached_to_payroll(payroll)
+        from invoice.models import Bill
+        total_amount = cls._get_payroll_bills_amount(payroll, Bill.Status.VALIDATED)
+        bills = cls._get_bill_attached_to_payroll(payroll, Bill.Status.VALIDATED)
         bill_uuids_string = cls._get_bills_to_string(bills)
         workflow.run({
             'user_uuid': str(user.id),
@@ -156,10 +150,17 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
 
     @classmethod
     def _exclude_rejected_bills(cls, payroll, rejected_bills):
+        from invoice.models import Bill
         rejected_uuids = [uuid.strip() for uuid in rejected_bills.split(',') if uuid.strip()]
         include_query = Q(uuid__in=rejected_uuids)
-        rejected_bills_queryset = cls._get_bill_attached_to_payroll(payroll).filter(include_query)
-        bills = cls._get_bill_attached_to_payroll(payroll).exclude(include_query)
+        rejected_bills_queryset = cls._get_bill_attached_to_payroll(
+            payroll,
+            Bill.Status.VALIDATED
+        ).filter(include_query)
+        bills = cls._get_bill_attached_to_payroll(
+            payroll,
+            Bill.Status.VALIDATED
+        ).exclude(include_query)
         return rejected_bills_queryset, bills
 
     @classmethod
