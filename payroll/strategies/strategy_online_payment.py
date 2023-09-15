@@ -1,3 +1,4 @@
+from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q, Sum
 
 from core.signals import register_service_signal
@@ -72,8 +73,8 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         }
 
         bill_payment_details = {
-            'subject_type': 'bill',
-            'subject_id': bill.id,
+            'subject_type': ContentType.objects.get_for_model(bill),
+            'subject': bill,
             'status': DetailPaymentInvoice.DetailPaymentStatus.ACCEPTED,
             'fees': 0.0,
             'amount': bill.amount_total,
