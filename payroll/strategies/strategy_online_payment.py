@@ -60,7 +60,7 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
             "bill_id": bill,
             "code_tp": bill.code_tp,
             "code_ext": bill.code_ext,
-            "code_receipt": bill.code_receipt,
+            "code_receipt": bill.code,
             "label": bill.terms,
             'reconciliation_status': PaymentInvoice.ReconciliationStatus.RECONCILIATED,
             "fees": 0.0,
