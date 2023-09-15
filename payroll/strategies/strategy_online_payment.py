@@ -1,4 +1,3 @@
-from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q, Sum
 
 from core.signals import register_service_signal
@@ -54,6 +53,7 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
 
     @classmethod
     def _create_bill_payment_for_paid_bill(cls, bill, user, current_date):
+        from django.contrib.contenttypes.models import ContentType
         from invoice.models import DetailPaymentInvoice, PaymentInvoice
         from invoice.services import PaymentInvoiceService
         # Create a BillPayment object for the 'Paid' bill
