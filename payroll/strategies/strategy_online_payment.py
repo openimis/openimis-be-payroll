@@ -33,11 +33,7 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         }
         unpaid_bills = cls._get_bill_attached_to_payroll(payroll, Bill.Status.UNPAID)
         for bill in unpaid_bills:
-            new_data = {
-                **common_data,
-                "code": f"{bill.code}-{current_date}-Unpaid",
-            }
-            bill.replace_object(data=new_data, username=user.username)
+            cls._create_new_bill_for_unpaid(bill, user, current_date, common_data)
 
         paid_bills = cls._get_bill_attached_to_payroll(payroll, Bill.Status.PAYED)
         for bill in paid_bills:
@@ -47,6 +43,14 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         from payroll.models import PayrollStatus
         payroll.status = PayrollStatus.RECONCILIATED
         payroll.save(username=user.username)
+
+    @classmethod
+    def _create_new_bill_for_unpaid(cls, bill, user, current_date, common_data):
+        new_data = {
+            **common_data,
+            "code": f"{bill.code}-{current_date}-Unpaid",
+        }
+        bill.replace_object(data=new_data, username=user.username)
 
     @classmethod
     def _create_bill_payment_for_paid_bill(cls, bill, user, current_date):
