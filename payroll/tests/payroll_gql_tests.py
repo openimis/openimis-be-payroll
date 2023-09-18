@@ -250,7 +250,8 @@ class PayrollGQLTestCase(TestCase):
     def __create_bill(cls):
         object_data = {
             "subject_type": cls.subject_type,
-            "subject_id": cls.beneficiary.id
+            "subject_id": cls.beneficiary.id,
+            "status": Bill.Status.VALIDATED
         }
         bill = Bill(**object_data)
         bill.save(username=cls.user.username)
