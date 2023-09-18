@@ -49,6 +49,7 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         new_data = {
             **common_data,
             "code": f"{bill.code}-{current_date}-Unpaid",
+            "json_ext": {"unpaid": True}
         }
         bill.replace_object(data=new_data, username=user.username)
 
