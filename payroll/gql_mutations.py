@@ -38,6 +38,7 @@ class CreatePayrollInput(OpenIMISMutation.Input):
     payment_point_id = graphene.UUID(required=True)
     status = graphene.Field(PayrollStatusEnum, required=True)
     payment_method = graphene.String(required=True, max_length=255)
+    included_unpaid = graphene.Boolean(required=True)
 
     date_valid_from = graphene.Date(required=False)
     date_valid_to = graphene.Date(required=False)
