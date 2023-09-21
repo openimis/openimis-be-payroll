@@ -125,7 +125,8 @@ class PayrollService(BaseService):
             is_deleted=False,
             date_bill__range=(date_from, date_to),
             subject_type=ContentType.objects.get_for_model(Beneficiary),
-            subject_id__in=beneficiary_ids
+            subject_id__in=beneficiary_ids,
+            status__in=[Bill.Status.VALIDATED]
         )
 
         return bills_queryset
