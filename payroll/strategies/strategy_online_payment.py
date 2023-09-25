@@ -1,4 +1,5 @@
 from django.db.models import Q, Sum
+from django.db import transaction
 
 from core.signals import register_service_signal
 from payroll.strategies.strategy_of_payments_interface import StrategyOfPaymentInterface
@@ -23,6 +24,7 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         cls._save_bill_data(payroll, rejected_bills)
 
     @classmethod
+    @transaction.atomic
     def reconcile_payroll(cls, payroll, user):
         from invoice.models import Bill
         from core import datetime
@@ -35,7 +37,7 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         for bill in unpaid_bills:
             cls._create_new_bill_for_unpaid(bill, user, current_date, common_data)
 
-        paid_bills = cls._get_bill_attached_to_payroll(payroll, Bill.Status.PAYED)
+        paid_bills = cls._get_bill_attached_to_payroll(payroll, Bill.Status.PAID)
         for bill in paid_bills:
             cls._create_bill_payment_for_paid_bill(bill, user, current_date)
 
@@ -148,7 +150,7 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
     def _save_bill_data(cls, payroll, rejected_bills):
         from invoice.models import Bill
         rejected_bills, bills = cls._exclude_rejected_bills(payroll, rejected_bills)
-        bills.update(status=Bill.Status.PAYED)
+        bills.update(status=Bill.Status.PAID)
         rejected_bills.update(status=Bill.Status.UNPAID)
 
     @classmethod
