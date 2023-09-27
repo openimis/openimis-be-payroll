@@ -139,7 +139,7 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
     @classmethod
     def _save_payroll_data(cls, payroll, user, response_from_gateway):
         from payroll.models import PayrollStatus
-        json_ext = payroll.json_ext
+        json_ext = payroll.json_ext if payroll.json_ext else {}
         json_ext['response_from_gateway'] = response_from_gateway
         payroll.json_ext = json_ext
         payroll.status = PayrollStatus.AWAITING_FOR_RECONCILIATION
