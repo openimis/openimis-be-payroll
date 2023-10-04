@@ -128,7 +128,8 @@ class PayrollService(BaseService):
             date_bill__range=(date_from, date_to),
             subject_type=ContentType.objects.get_for_model(Beneficiary),
             subject_id__in=beneficiary_ids,
-            status__in=[Bill.Status.VALIDATED]
+            status__in=[Bill.Status.VALIDATED],
+            payrollbill__isnull=True
         )
 
         if included_unpaid:
