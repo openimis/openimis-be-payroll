@@ -50,7 +50,7 @@ def are_bills_in_data(data):
 
 def validate_one_payroll_per_bill(data):
     bills = data.get('bills', [])
-    query = PayrollBill.objects.filter(bill__in=bills)
+    query = PayrollBill.objects.filter(bill__in=bills, is_deleted=False)
     if query.exists():
         payroll_bill_ids = list(query.values_list('id', flat=True))
         return [{"message": _("payroll.validation.payroll.bill_already_assigned") % {

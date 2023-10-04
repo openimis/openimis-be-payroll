@@ -129,7 +129,10 @@ class PayrollService(BaseService):
             subject_type=ContentType.objects.get_for_model(Beneficiary),
             subject_id__in=beneficiary_ids,
             status__in=[Bill.Status.VALIDATED],
-            payrollbill__isnull=True
+        )
+
+        bills_queryset = bills_queryset.filter(
+            Q(payrollbill__isnull=True) | Q(payrollbill__is_deleted=True)
         )
 
         if included_unpaid:
