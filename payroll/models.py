@@ -23,7 +23,7 @@ class PaymentPoint(HistoryModel):
 class Payroll(HistoryBusinessModel):
     name = models.CharField(max_length=255, blank=False, null=False)
     benefit_plan = models.ForeignKey(BenefitPlan, on_delete=models.DO_NOTHING)
-    payment_point = models.ForeignKey(PaymentPoint, on_delete=models.DO_NOTHING)
+    payment_point = models.ForeignKey(PaymentPoint, on_delete=models.DO_NOTHING, null=True)
     status = models.CharField(
         max_length=100, choices=PayrollStatus.choices, default=PayrollStatus.CREATED, null=False
     )
