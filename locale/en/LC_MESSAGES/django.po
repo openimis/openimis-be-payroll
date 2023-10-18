@@ -1,0 +1,11 @@
+msgid "payroll.validation.payroll.bill_already_assigned"
+msgstr "Bills %(bill_ids) already assigned to payroll."
+
+msgid "payroll.validation.payroll.no_bills_for_filter_criteria"
+msgstr "Bills not found for given search criteria."
+
+msgid "payroll.validation.payroll.name_exists"
+msgstr "Name %(name) already exists."
+
+msgid "payroll.validation.field_empty"
+msgstr "Field %(field) can not be empty."

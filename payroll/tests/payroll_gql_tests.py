@@ -5,6 +5,7 @@ from graphene import Schema
 from graphene.test import Client
 from django.test import TestCase
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import Q
 
 from individual.models import Individual
 from individual.tests.data import service_add_individual_payload
@@ -213,6 +214,26 @@ class PayrollGQLTestCase(TestCase):
         payroll_bill.delete(username=self.user.username)
         self.assertTrue(PayrollBill.objects.filter(payroll=payroll, bill=self.bill, is_deleted=True))
 
+    def test_check_bill_included_unpaid(self):
+        self.bill.json_ext = {"unpaid": True}
+        self.bill.save(username=self.user.username)
+        bills_queryset_not_paid = Bill.objects.filter(json_ext__unpaid=True)
+        bills_queryset = Bill.objects.filter(
+            Q(json_ext__unpaid=False) |
+            Q(json_ext__unpaid__isnull=True)
+        )
+        self.assertGreaterEqual(bills_queryset_not_paid.count(), 1)
+        self.assertEqual(bills_queryset.count(), 0)
+
+    def test_check_bill_not_included_unpaid(self):
+        bills_queryset_not_paid = Bill.objects.filter(json_ext__unpaid=True)
+        bills_queryset = Bill.objects.filter(
+            Q(json_ext__unpaid=False) |
+            Q(json_ext__unpaid__isnull=True)
+        )
+        self.assertEqual(bills_queryset_not_paid.count(), 0)
+        self.assertGreaterEqual(bills_queryset.count(), 1)
+
     @classmethod
     def __create_benefit_plan(cls):
         object_data = {
@@ -250,7 +271,8 @@ class PayrollGQLTestCase(TestCase):
     def __create_bill(cls):
         object_data = {
             "subject_type": cls.subject_type,
-            "subject_id": cls.beneficiary.id
+            "subject_id": cls.beneficiary.id,
+            "status": Bill.Status.VALIDATED
         }
         bill = Bill(**object_data)
         bill.save(username=cls.user.username)

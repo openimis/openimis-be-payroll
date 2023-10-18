@@ -1,6 +1,7 @@
 import logging
 
 from django.db import transaction
+from django.db.models import Q
 from django.contrib.contenttypes.models import ContentType
 
 from core.custom_filters import CustomFilterWizardStorage
@@ -49,8 +50,9 @@ class PayrollService(BaseService):
     def create(self, obj_data):
         try:
             with transaction.atomic():
+                included_unpaid = obj_data.pop("included_unpaid", False)
                 obj_data = self._adjust_create_payload(obj_data)
-                bills_queryset = self._get_bills_queryset(obj_data)
+                bills_queryset = self._get_bills_queryset(obj_data, included_unpaid)
                 obj_data_and_bills = {**obj_data, "bills": bills_queryset}
                 self.validation_class.validate_create(self.user, **obj_data_and_bills)
                 obj_ = self.OBJECT_TYPE(**obj_data)
@@ -96,7 +98,7 @@ class PayrollService(BaseService):
             payroll_bill = PayrollBill(bill_id=bill.id, payroll_id=payroll_id)
             payroll_bill.save(username=self.user.username)
 
-    def _get_bills_queryset(self, obj_data):
+    def _get_bills_queryset(self, obj_data, included_unpaid):
         benefit_plan_id = obj_data.get("benefit_plan_id")
         date_from = obj_data.get("date_valid_from")
         date_to = obj_data.get("date_valid_to")
@@ -125,7 +127,20 @@ class PayrollService(BaseService):
             is_deleted=False,
             date_bill__range=(date_from, date_to),
             subject_type=ContentType.objects.get_for_model(Beneficiary),
-            subject_id__in=beneficiary_ids
+            subject_id__in=beneficiary_ids,
+            status__in=[Bill.Status.VALIDATED],
         )
+
+        bills_queryset = bills_queryset.filter(
+            Q(payrollbill__isnull=True) | Q(payrollbill__is_deleted=True)
+        )
+
+        if included_unpaid:
+            bills_queryset = bills_queryset.filter(json_ext__unpaid=True)
+        else:
+            bills_queryset = bills_queryset.filter(
+                Q(json_ext__unpaid=False) |
+                Q(json_ext__unpaid__isnull=True)
+            )
 
         return bills_queryset
