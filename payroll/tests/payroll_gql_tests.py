@@ -57,6 +57,9 @@ class PayrollGQLTestCase(TestCase):
         cls.json_ext_able_bodied_false = {"advanced_criteria": [{"custom_filter_condition": "able_bodied__boolean=False"}]}
         cls.json_ext_able_bodied_true = {"advanced_criteria": [{"custom_filter_condition": "able_bodied__boolean=True"}]}
 
+        cls.json_ext_able_bodied_false_str = """{\\"advanced_criteria\\": [{\\"custom_filter_condition\\": \\"able_bodied__boolean=False\\"}]}"""
+        cls.json_ext_able_bodied_true_str = """{\\"advanced_criteria\\": [{\\"custom_filter_condition\\": \\"able_bodied__boolean=True\\"}]}"""
+
     def test_query(self):
         output = self.gql_client.execute(gql_payroll_query, context=self.gql_context)
         result = output.get('data', {}).get('payroll', {})
@@ -124,7 +127,7 @@ class PayrollGQLTestCase(TestCase):
         self.assertFalse(payroll.exists())
 
     def test_create_fail_due_to_lack_of_bills_for_given_criteria(self):
-        payroll = self.create_payroll(self.name, self.json_ext_able_bodied_false)
+        payroll = self.create_payroll(self.name, self.json_ext_able_bodied_false_str)
         self.assertFalse(payroll.exists())
 
     def test_create_no_advanced_criteria(self):
@@ -133,12 +136,12 @@ class PayrollGQLTestCase(TestCase):
         self.delete_payroll_and_check_bill(payroll)
 
     def test_create_full(self):
-        payroll = self.create_payroll(self.name, self.json_ext_able_bodied_true)
+        payroll = self.create_payroll(self.name, self.json_ext_able_bodied_true_str)
         self.assertTrue(payroll.exists())
         self.delete_payroll_and_check_bill(payroll)
 
     def test_create_fail_due_to_empty_name(self):
-        payroll = self.create_payroll("", self.json_ext_able_bodied_true)
+        payroll = self.create_payroll("", self.json_ext_able_bodied_true_str)
         self.assertFalse(payroll.exists())
 
     def test_create_fail_due_to_one_bill_assigment(self):
