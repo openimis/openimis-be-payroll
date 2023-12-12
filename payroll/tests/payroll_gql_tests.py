@@ -53,8 +53,9 @@ class PayrollGQLTestCase(TestCase):
         cls.subject_type = ContentType.objects.get_for_model(Beneficiary)
         cls.beneficiary = cls.__create_beneficiary()
         cls.bill = cls.__create_bill()
-        cls.json_ext_able_bodied_false = """{\\"advanced_criteria\\": [{\\"custom_filter_condition\\": \\"able_bodied__boolean=False\\"}]}"""
-        cls.json_ext_able_bodied_true = """{\\"advanced_criteria\\": [{\\"custom_filter_condition\\": \\"able_bodied__boolean=True\\"}]}"""
+
+        cls.json_ext_able_bodied_false = {"advanced_criteria": [{"custom_filter_condition": "able_bodied__boolean=False"}]}
+        cls.json_ext_able_bodied_true = {"advanced_criteria": [{"custom_filter_condition": "able_bodied__boolean=True"}]}
 
     def test_query(self):
         output = self.gql_client.execute(gql_payroll_query, context=self.gql_context)
