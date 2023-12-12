@@ -146,10 +146,10 @@ class PayrollGQLTestCase(TestCase):
 
     def test_create_fail_due_to_one_bill_assigment(self):
         tmp_name = f"{self.name}-tmp"
-        payroll_tmp = self.create_payroll(tmp_name, self.json_ext_able_bodied_true)
+        payroll_tmp = self.create_payroll(tmp_name, self.json_ext_able_bodied_true_str)
         self.assertTrue(payroll_tmp.exists())
 
-        payroll = self.create_payroll(self.name, self.json_ext_able_bodied_true)
+        payroll = self.create_payroll(self.name, self.json_ext_able_bodied_true_str)
         self.assertFalse(payroll.exists())
 
         self.delete_payroll_and_check_bill(payroll_tmp)
@@ -163,7 +163,7 @@ class PayrollGQLTestCase(TestCase):
             self.status,
             self.date_valid_from,
             self.date_valid_to,
-            self.json_ext_able_bodied_false,
+            self.json_ext_able_bodied_false_str,
         )
         output = self.gql_client.execute(payload, context=self.gql_context_unauthorized)
         self.assertFalse(
