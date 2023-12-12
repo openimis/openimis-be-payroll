@@ -95,6 +95,7 @@ mutation m2 {
                 status: %s
                 dateValidFrom: "%s"
                 dateValidTo: "%s"
+                includedUnpaid: true
                 jsonExt: "%s"
   }) {
     clientMutationId
@@ -112,6 +113,8 @@ mutation m2 {
                 status: %s
                 dateValidFrom: "%s"
                 dateValidTo: "%s"
+                includedUnpaid: true
+
   }) {
     clientMutationId
   }
