@@ -1,7 +1,9 @@
 import json
+import uuid
 from datetime import datetime, timedelta
+from core.models import MutationLog
 
-from graphene import Schema
+from graphene import JSONString, Schema
 from graphene.test import Client
 from django.test import TestCase
 from django.contrib.contenttypes.models import ContentType
@@ -10,7 +12,7 @@ from django.db.models import Q
 from individual.models import Individual
 from individual.tests.data import service_add_individual_payload
 from invoice.models import Bill
-from payroll.models import Payroll, PayrollBill
+from payroll.models import Payroll, PayrollBill, PayrollStatus
 from payroll.tests.data import gql_payroll_create, gql_payroll_query, gql_payroll_delete, \
     gql_payroll_create_no_json_ext
 from payroll.tests.helpers import LogInHelper, PaymentPointHelper
@@ -44,7 +46,7 @@ class PayrollGQLTestCase(TestCase):
         cls.gql_context = cls.GQLContext(cls.user)
         cls.gql_context_unauthorized = cls.GQLContext(cls.user_unauthorized)
         cls.name = "TestCreatePayroll"
-        cls.status = "CREATED"
+        cls.status = PayrollStatus.CREATED
         cls.payment_method = "TestPaymentMethod"
         cls.date_valid_from, cls.date_valid_to = cls.__get_start_and_end_of_current_month()
         cls.payment_point = PaymentPointHelper().get_or_create_payment_point_api()
@@ -53,8 +55,9 @@ class PayrollGQLTestCase(TestCase):
         cls.subject_type = ContentType.objects.get_for_model(Beneficiary)
         cls.beneficiary = cls.__create_beneficiary()
         cls.bill = cls.__create_bill()
-        cls.json_ext_able_bodied_false = """{\\"advanced_criteria\\": [{\\"custom_filter_condition\\": \\"able_bodied__boolean=False\\"}]}"""
-        cls.json_ext_able_bodied_true = """{\\"advanced_criteria\\": [{\\"custom_filter_condition\\": \\"able_bodied__boolean=True\\"}]}"""
+        cls.json_ext_able_bodied_false = """{"advanced_criteria": [{"custom_filter_condition": "able_bodied__boolean=False"}]}"""
+        cls.json_ext_able_bodied_true = """{"advanced_criteria": [{"custom_filter_condition": "able_bodied__boolean=True"}]}"""
+        cls.includedUnpaid = False
 
     def test_query(self):
         output = self.gql_client.execute(gql_payroll_query, context=self.gql_context)
@@ -67,17 +70,21 @@ class PayrollGQLTestCase(TestCase):
         self.assertTrue(error)
 
     def create_payroll(self, name, json_ext):
-        payload = gql_payroll_create % (
-            name,
-            self.benefit_plan.id,
-            self.payment_point.id,
-            self.payment_method,
-            self.status,
-            self.date_valid_from,
-            self.date_valid_to,
-            json_ext,
-        )
-        output = self.gql_client.execute(payload, context=self.gql_context)
+        variables = {
+            "name": name,
+            "benefitPlanId": str(self.benefit_plan.id),
+            "paymentPointId": str(self.payment_point.id),
+            "paymentMethod": self.payment_method,
+            "status": PayrollStatus.CREATED,
+            "dateValidFrom": self.date_valid_from,
+            "dateValidTo": self.date_valid_to,
+            "includedUnpaid": bool(self.includedUnpaid),
+            "jsonExt": json_ext,
+            "clientMutationId": str(uuid.uuid4())
+        }
+
+        output = self.gql_client.execute(gql_payroll_create, context=self.gql_context, variable_values=variables)
+
         payroll = Payroll.objects.filter(
             name=name,
             benefit_plan_id=self.benefit_plan.id,
@@ -99,6 +106,7 @@ class PayrollGQLTestCase(TestCase):
             self.status,
             self.date_valid_from,
             self.date_valid_to,
+            str(self.includedUnpaid).lower()
         )
         output = self.gql_client.execute(payload, context=self.gql_context)
         payroll = Payroll.objects.filter(
@@ -151,17 +159,23 @@ class PayrollGQLTestCase(TestCase):
         self.delete_payroll_and_check_bill(payroll_tmp)
 
     def test_create_unauthorized(self):
-        payload = gql_payroll_create % (
-            self.name,
-            self.benefit_plan.id,
-            self.payment_point.id,
-            self.payment_method,
-            self.status,
-            self.date_valid_from,
-            self.date_valid_to,
-            self.json_ext_able_bodied_false,
-        )
-        output = self.gql_client.execute(payload, context=self.gql_context_unauthorized)
+
+        variables = {
+            "name": self.name,
+            "benefitPlanId": str(self.benefit_plan.id),
+            "paymentPointId": str(self.payment_point.id),
+            "paymentMethod": self.payment_method,
+            "status": PayrollStatus.CREATED,
+            "dateValidFrom": self.date_valid_from,
+            "dateValidTo": self.date_valid_to,
+            "includedUnpaid": bool(self.includedUnpaid),
+            "jsonExt": self.json_ext_able_bodied_false,
+            "clientMutationId": str(uuid.uuid4())
+        }
+
+
+        output = self.gql_client.execute(
+            gql_payroll_create, context=self.gql_context_unauthorized, variable_values=variables)
         self.assertFalse(
             Payroll.objects.filter(
                 name=self.name,
@@ -184,7 +198,7 @@ class PayrollGQLTestCase(TestCase):
                           status=self.status,
                           date_valid_from=self.date_valid_from,
                           date_valid_to=self.date_valid_to,
-                          json_ext=self.json_ext_able_bodied_false,
+                          json_ext=json.loads(self.json_ext_able_bodied_false),
                           )
         payroll.save(username=self.user.username)
         payroll_bill = PayrollBill(payroll=payroll, bill=self.bill)
@@ -202,7 +216,7 @@ class PayrollGQLTestCase(TestCase):
                           status=self.status,
                           date_valid_from=self.date_valid_from,
                           date_valid_to=self.date_valid_to,
-                          json_ext=self.json_ext_able_bodied_true,
+                          json_ext=json.loads(self.json_ext_able_bodied_true),
                           )
         payroll.save(username=self.user.username)
         payroll_bill = PayrollBill(payroll=payroll, bill=self.bill)
