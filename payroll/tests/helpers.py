@@ -33,9 +33,14 @@ class LogInHelper:
 
 class PaymentPointHelper:
     _TEST_DATA_PAYMENT_POINT = {
-        "name": "TestPaymentPoint",
-        "location": Location.objects.filter(validity_to__isnull=True, type='V').first()
+
     }
+
+    def __init__(self):
+        self._TEST_DATA_PAYMENT_POINT = {
+            "name": "TestPaymentPoint",
+            "location": Location.objects.filter(validity_to__isnull=True, type='V').first()
+        }
 
     def get_or_create_payment_point_api(self, **kwargs):
         payment_point = PaymentPoint.objects.filter(name={**self._TEST_DATA_PAYMENT_POINT, **kwargs}["name"]).first()
