@@ -15,7 +15,6 @@ imis_modules = openimis_apps()
 
 
 def bind_service_signals():
-
     def on_task_complete_accept_payroll(**kwargs):
         def accept_payroll(payroll, user):
             strategy = PaymentMethodStorage.get_chosen_payment_method(payroll.payment_method)

@@ -2,9 +2,11 @@ from django.db import models
 from django.utils.translation import gettext as _
 
 from core.models import HistoryModel, HistoryBusinessModel, User
+from core.fields import DateField
 from invoice.models import Bill
 from location.models import Location
 from social_protection.models import BenefitPlan
+from individual.models import Individual
 
 
 class PayrollStatus(models.TextChoices):
@@ -12,6 +14,12 @@ class PayrollStatus(models.TextChoices):
     ONGOING = "ONGOING", _("ONGOING")
     AWAITING_FOR_RECONCILIATION = "AWAITING_FOR_RECONCILIATION", _("AWAITING_FOR_RECONCILIATION")
     RECONCILIATED = "RECONCILIATED", _("RECONCILIATED")
+
+
+class BenefitConsumptionStatus(models.TextChoices):
+    ACCEPTED = "ACCEPTED", _("ACCEPTED")
+    REJECTED = "REJECTED", _("REJECTED")
+    DUPLICATE = "DUPLICATE", _("DUPLICATE")
 
 
 class PaymentPoint(HistoryModel):
@@ -43,3 +51,24 @@ class PaymentAdaptorHistory(HistoryModel):
     payroll = models.ForeignKey(Payroll, on_delete=models.DO_NOTHING)
     total_amount = models.CharField(max_length=255, blank=True, null=True)
     bills_ids = models.JSONField()
+
+
+class BenefitConsumption(HistoryBusinessModel):
+    individual = models.ForeignKey(Individual, on_delete=models.DO_NOTHING)
+    photo = models.TextField(blank=True, null=True)
+    code = models.CharField(max_length=255, blank=False, null=False)
+    date_due = DateField(db_column='DateDue', null=True)
+    receipt = models.CharField(db_column='Receipt', max_length=255, null=True)
+    amount = models.DecimalField(db_column='Amount', max_digits=18, decimal_places=2, null=True)
+    type = models.CharField(db_column='Type', max_length=255, null=True)
+    status = models.CharField(
+        max_length=100, choices=BenefitConsumptionStatus.choices, default=BenefitConsumptionStatus.ACCEPTED, null=False
+    )
+
+    def __str__(self):
+        return f"Benefit Consumption {self.code} - {self.receipt} - {self.amount}"
+
+
+class BenefitAttachment(HistoryBusinessModel):
+    benefit = models.ForeignKey(BenefitConsumption, on_delete=models.DO_NOTHING)
+    bill = models.ForeignKey(Bill, on_delete=models.DO_NOTHING)

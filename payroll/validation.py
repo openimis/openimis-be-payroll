@@ -2,7 +2,7 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
 
 from core.validation import BaseModelValidation
-from payroll.models import PaymentPoint, Payroll, PayrollBill
+from payroll.models import PaymentPoint, Payroll, PayrollBill, BenefitConsumption
 
 
 class PaymentPointValidation(BaseModelValidation):
@@ -29,6 +29,14 @@ class PayrollValidation(BaseModelValidation):
         errors = validate_payroll(data)
         if errors:
             raise ValidationError(errors)
+        super().validate_create(user, **data)
+
+
+class BenefitConsumptionValidation(BaseModelValidation):
+    OBJECT_TYPE = BenefitConsumption
+
+    @classmethod
+    def validate_create(cls, user, **data):
         super().validate_create(user, **data)
 
 

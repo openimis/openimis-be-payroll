@@ -9,8 +9,14 @@ from core.services import BaseService
 from core.signals import register_service_signal
 from invoice.models import Bill
 from payroll.apps import PayrollConfig
-from payroll.models import PaymentPoint, Payroll, PayrollBill
-from payroll.validation import PaymentPointValidation, PayrollValidation
+from payroll.models import (
+    PaymentPoint,
+    Payroll,
+    PayrollBill,
+    BenefitConsumption,
+    BenefitAttachment
+)
+from payroll.validation import PaymentPointValidation, PayrollValidation, BenefitConsumptionValidation
 from core.services.utils import output_exception, check_authentication
 from social_protection.models import Beneficiary
 from tasks_management.apps import TasksManagementConfig
@@ -144,3 +150,34 @@ class PayrollService(BaseService):
             )
 
         return bills_queryset
+
+
+class BenefitConsumptionService(BaseService):
+    OBJECT_TYPE = BenefitConsumption
+
+    def __init__(self, user, validation_class=BenefitConsumptionValidation):
+        super().__init__(user, validation_class)
+
+    @check_authentication
+    @register_service_signal('benefit_consumption_service.create')
+    def create(self, obj_data):
+        return super().create(obj_data)
+
+    @register_service_signal('benefit_consumption_service.update')
+    def update(self, obj_data):
+        return super().update(obj_data)
+
+    @check_authentication
+    @register_service_signal('benefit_consumption_service.delete')
+    def delete(self, obj_data):
+        return super().delete(obj_data)
+
+    @check_authentication
+    @register_service_signal('benefit_consumption_service.create_or_update_benefit_attachment')
+    def create_or_update_benefit_attachment(self, bills_queryset, benefit_id):
+        # remove first old attachments and save the new one
+        BenefitAttachment.objects.filter(benefit_id=benefit_id).delete()
+        # save new bill attachments
+        for bill in bills_queryset:
+            benefit_attachment = BenefitAttachment(bill_id=bill.id, benefit_id=benefit_id)
+            benefit_attachment.save(username=self.user.username)

@@ -1,3 +1,6 @@
+from datetime import date
+
+
 gql_payment_point_query = """
 query q1 {
   paymentPoint {
@@ -135,6 +138,34 @@ mutation m2 {
     ids: %s
   }) {
     clientMutationId
+  }
+}
+"""
+
+benefit_consumption_data_test = {
+    "photo": "photo-test.jpg",
+    "code": "BC123-TEST",
+    "date_due": date(2023, 5, 31),
+    "receipt": "REC-BC123-TEST",
+    "amount": 500.00,
+    "type": "Cash",
+    "status": "ACCEPTED",
+}
+
+
+benefit_consumption_data_update = {
+    "code": "BC123-fixed-fix",
+}
+
+
+gql_benefit_consumption_query = """
+query q2 {
+  benefitConsumption {
+    edges {
+      node {
+        id
+      }
+    }
   }
 }
 """
