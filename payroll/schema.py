@@ -12,8 +12,8 @@ from location.services import get_ancestor_location_filter
 from payroll.apps import PayrollConfig
 from payroll.gql_mutations import CreatePaymentPointMutation, UpdatePaymentPointMutation, DeletePaymentPointMutation, \
     CreatePayrollMutation, DeletePayrollMutation
-from payroll.gql_queries import PaymentPointGQLType, PayrollGQLType, PaymentMethodGQLType, PaymentMethodListGQLType
-from payroll.models import PaymentPoint, Payroll
+from payroll.gql_queries import BenefitConsumptionGQLType, PaymentPointGQLType, PayrollGQLType, PaymentMethodGQLType, PaymentMethodListGQLType
+from payroll.models import PaymentPoint, Payroll, BenefitConsumption
 from payroll.payments_registry import PaymentMethodStorage
 
 
@@ -41,6 +41,14 @@ class Query(graphene.ObjectType):
         applyDefaultValidityFilter=graphene.Boolean(),
         client_mutation_id=graphene.String(),
         payroll_uuid=graphene.UUID(required=True)
+    )
+
+    benefit_consumption = OrderedDjangoFilterConnectionField(
+        BenefitConsumptionGQLType,
+        orderBy=graphene.List(of_type=graphene.String),
+        dateValidFrom__Gte=graphene.DateTime(),
+        dateValidTo__Lte=graphene.DateTime(),
+        client_mutation_id=graphene.String(),
     )
 
     payment_methods = graphene.Field(
@@ -92,6 +100,17 @@ class Query(graphene.ObjectType):
             filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
 
         query = Payroll.objects.filter(*filters)
+        return gql_optimizer.query(query, info)
+
+    def resolve_benefit_consumption(self, info, **kwargs):
+        Query._check_permissions(info.context.user, PayrollConfig.gql_payroll_search_perms)
+        filters = append_validity_filter(**kwargs)
+
+        client_mutation_id = kwargs.get("client_mutation_id")
+        if client_mutation_id:
+            filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
+
+        query = BenefitConsumption.objects.filter(*filters)
         return gql_optimizer.query(query, info)
 
     def resolve_payment_methods(self, info, **kwargs):

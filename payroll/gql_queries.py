@@ -6,7 +6,8 @@ from core.gql_queries import UserGQLType
 from invoice.gql.gql_types.bill_types import BillGQLType
 from invoice.models import Bill
 from location.gql_queries import LocationGQLType
-from payroll.models import PaymentPoint, Payroll
+from individual.gql_queries import IndividualGQLType
+from payroll.models import PaymentPoint, Payroll, BenefitConsumption, BenefitAttachment
 from social_protection.gql_queries import BenefitPlanGQLType
 
 
@@ -58,6 +59,59 @@ class PayrollGQLType(DjangoObjectType):
         return Bill.objects.filter(payrollbill__payroll__id=self.id,
                                    is_deleted=False,
                                    payrollbill__is_deleted=False)
+
+
+class BenefitAttachmentGQLType(DjangoObjectType):
+    uuid = graphene.String(source='uuid')
+
+    class Meta:
+        model = BenefitAttachment
+        interfaces = (graphene.relay.Node,)
+        filter_fields = {
+            "id": ["exact"],
+            **prefix_filterset("bill__", BillGQLType._meta.filter_fields),
+
+            "date_created": ["exact", "lt", "lte", "gt", "gte"],
+            "date_updated": ["exact", "lt", "lte", "gt", "gte"],
+            "date_valid_from": ["exact", "lt", "lte", "gt", "gte"],
+            "date_valid_to": ["exact", "lt", "lte", "gt", "gte"],
+            "is_deleted": ["exact"],
+            "version": ["exact"],
+        }
+        connection_class = ExtendedConnection
+
+
+class BenefitConsumptionGQLType(DjangoObjectType):
+    uuid = graphene.String(source='uuid')
+    benefit_attachment = graphene.List(BenefitAttachmentGQLType)
+
+    class Meta:
+        model = BenefitConsumption
+        interfaces = (graphene.relay.Node,)
+        filter_fields = {
+            "id": ["exact"],
+            "photo": ["iexact", "istartswith", "icontains"],
+            "code": ["iexact", "istartswith", "icontains"],
+            "status": ["exact", "startswith", "contains"],
+            "receipt": ["exact", "startswith", "contains"],
+            "date_due": ["exact", "lt", "lte", "gt", "gte"],
+            **prefix_filterset("individual__", IndividualGQLType._meta.filter_fields),
+
+            "date_created": ["exact", "lt", "lte", "gt", "gte"],
+            "date_updated": ["exact", "lt", "lte", "gt", "gte"],
+            "date_valid_from": ["exact", "lt", "lte", "gt", "gte"],
+            "date_valid_to": ["exact", "lt", "lte", "gt", "gte"],
+            "is_deleted": ["exact"],
+            "version": ["exact"],
+        }
+        connection_class = ExtendedConnection
+
+    def resolve_benefit_attachment(self, info):
+        print(self.id)
+        return BenefitAttachment.objects.filter(
+            benefit_id=self.id,
+            is_deleted=False
+        )
 
 
 class PaymentMethodGQLType(graphene.ObjectType):
