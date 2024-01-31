@@ -15,9 +15,6 @@ imis_modules = openimis_apps()
 
 
 def bind_service_signals():
-    print(imis_modules)
-
-
     def on_task_complete_accept_payroll(**kwargs):
         def accept_payroll(payroll, user):
             strategy = PaymentMethodStorage.get_chosen_payment_method(payroll.payment_method)
@@ -55,8 +52,6 @@ def bind_service_signals():
                     reconcile_payroll(payroll, user)
         except Exception as exc:
             logger.error("Error while executing on_task_complete_payroll_reconciliation", exc_info=exc)
-
-    print('dsjkldsajkldsakjdsal')
 
     bind_service_signal(
         'task_service.complete_task',

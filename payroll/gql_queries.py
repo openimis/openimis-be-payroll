@@ -107,7 +107,6 @@ class BenefitConsumptionGQLType(DjangoObjectType):
         connection_class = ExtendedConnection
 
     def resolve_benefit_attachment(self, info):
-        print(self.id)
         return BenefitAttachment.objects.filter(
             benefit_id=self.id,
             is_deleted=False

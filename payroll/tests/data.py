@@ -156,3 +156,16 @@ benefit_consumption_data_test = {
 benefit_consumption_data_update = {
     "code": "BC123-fixed-fix",
 }
+
+
+gql_benefit_consumption_query = """
+query q2 {
+  benefitConsumption {
+    edges {
+      node {
+        id
+      }
+    }
+  }
+}
+"""
