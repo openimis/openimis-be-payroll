@@ -20,6 +20,7 @@ def bind_service_signals():
             strategy = PaymentMethodStorage.get_chosen_payment_method(payroll.payment_method)
             if strategy:
                 strategy.accept_payroll(payroll, user)
+                generate_payroll_invoices(payroll)
         try:
             result = kwargs.get('result', None)
             task = result['data']['task']

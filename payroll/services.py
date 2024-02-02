@@ -21,7 +21,7 @@ from core.services.utils import output_exception, check_authentication
 from social_protection.models import Beneficiary
 from tasks_management.apps import TasksManagementConfig
 from tasks_management.models import Task
-from tasks_management.services import TaskService
+from tasks_management.services import TaskService, _get_std_task_data_payload
 
 logger = logging.getLogger(__name__)
 
@@ -90,13 +90,14 @@ class PayrollService(BaseService):
     @register_service_signal('payroll_service.create_task')
     def _create_accept_payroll_task(self, payroll_id, obj_data):
         payroll_to_accept = Payroll.objects.get(id=payroll_id)
+        data = {**obj_data, 'id': payroll_id}
         TaskService(self.user).create({
             'source': 'payroll',
             'entity': payroll_to_accept,
             'status': Task.Status.RECEIVED,
             'executor_action_event': TasksManagementConfig.default_executor_event,
             'business_event': PayrollConfig.payroll_accept_event,
-            'data': f"{obj_data}"
+            'data': _get_std_task_data_payload(data)
         })
 
     def _create_payroll_bills(self, bills_queryset, payroll_id):
