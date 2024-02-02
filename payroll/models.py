@@ -12,21 +12,19 @@ from individual.models import Individual
 
 
 class PayrollStatus(models.TextChoices):
-    # PENDING_APPROVAL - approve - you can remove invoice
-    CREATED = "CREATED", _("CREATED")
-    # APPROVE_FOR_PAYMENT
-    ONGOING = "ONGOING", _("ONGOING")
-    AWAITING_FOR_RECONCILIATION = "AWAITING_FOR_RECONCILIATION", _("AWAITING_FOR_RECONCILIATION")
-    RECONCILIATED = "RECONCILIATED", _("RECONCILIATED")
+    PENDING_APPROVAL = "PENDING_APPROVAL", _("PENDING_APPROVAL")
+    APPROVE_FOR_PAYMENT = "APPROVE_FOR_PAYMENT", _("APPROVE_FOR_PAYMENT")
+    REJECTED = "REJECTED", _("REJECTED")
+    RECONCILED = "RECONCILED", _("RECONCILED")
 
 
 class BenefitConsumptionStatus(models.TextChoices):
-    CREATED = "CREATED", _("CREATED")
     ACCEPTED = "ACCEPTED", _("ACCEPTED")
+    CREATED = "CREATED", _("CREATED")
+    APPROVE_FOR_PAYMENT = "APPROVE_FOR_PAYMENT", _("APPROVE_FOR_PAYMENT")
     REJECTED = "REJECTED", _("REJECTED")
     DUPLICATE = "DUPLICATE", _("DUPLICATE")
-    AWAITING_FOR_RECONCILIATION = "AWAITING_FOR_RECONCILIATION", _("AWAITING_FOR_RECONCILIATION")
-    RECONCILIATED = "RECONCILIATED", _("RECONCILIATED")
+    RECONCILED = "RECONCILED", _("RECONCILED")
 
 
 class PaymentPoint(HistoryModel):
@@ -41,7 +39,7 @@ class Payroll(HistoryBusinessModel):
     payment_cycle = models.ForeignKey(PaymentCycle, on_delete=models.DO_NOTHING, null=True)
     payment_point = models.ForeignKey(PaymentPoint, on_delete=models.DO_NOTHING, null=True)
     status = models.CharField(
-        max_length=100, choices=PayrollStatus.choices, default=PayrollStatus.CREATED, null=False
+        max_length=100, choices=PayrollStatus.choices, default=PayrollStatus.PENDING_APPROVAL, null=False
     )
     payment_method = models.CharField(max_length=255, blank=True, null=True)
 
@@ -66,7 +64,6 @@ class BenefitConsumption(HistoryBusinessModel):
     photo = models.TextField(blank=True, null=True)
     code = models.CharField(max_length=255, blank=False, null=False)
     date_due = DateField(db_column='DateDue', null=True)
-    # receipt - only after payment is done - code, image etc (different kind)
     receipt = models.CharField(db_column='Receipt', max_length=255, null=True)
     amount = models.DecimalField(db_column='Amount', max_digits=18, decimal_places=2, null=True)
     type = models.CharField(db_column='Type', max_length=255, null=True)

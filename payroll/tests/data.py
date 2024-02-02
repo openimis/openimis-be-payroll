@@ -75,7 +75,7 @@ query q2 {
 gql_payroll_filter = """
 query q2 {
   paymentPoint(name_Iexact: "%s", 
-                benefitPlan_Uuid: "%s", 
+                paymentPlan_Uuid: "%s", 
                 paymentPoint_Uuid: "%s"
                 dateValidFrom: "%s"
                 dateValidTo: "%s") {
@@ -107,8 +107,8 @@ query q2 {
 # """
 
 gql_payroll_create = """
-mutation createPayroll($name: String!, $benefitPlanId: UUID!, $paymentPointId: UUID!, $paymentMethod: String!, $status: PayrollStatusEnum!, $dateValidFrom: Date, $dateValidTo: Date, $includedUnpaid: Boolean!, $jsonExt: JSONString, $clientMutationId: String) {
-  createPayroll(input: {name: $name, benefitPlanId : $benefitPlanId,   paymentPointId: $paymentPointId, paymentMethod: $paymentMethod, status: $status, dateValidFrom: $dateValidFrom, dateValidTo: $dateValidTo, includedUnpaid: $includedUnpaid, jsonExt: $jsonExt, clientMutationId : $clientMutationId}) {
+mutation createPayroll($name: String!, $paymentCycleId: UUID!, $paymentPlanId: UUID!, $paymentPointId: UUID!, $paymentMethod: String!, $status: PayrollStatusEnum!, $dateValidFrom: Date, $dateValidTo: Date, $includedUnpaid: Boolean!, $jsonExt: JSONString, $clientMutationId: String) {
+  createPayroll(input: {name: $name, paymentCycleId: $paymentCycleId, paymentPlanId: $paymentPlanId, paymentPointId: $paymentPointId, paymentMethod: $paymentMethod, status: $status, dateValidFrom: $dateValidFrom, dateValidTo: $dateValidTo, jsonExt: $jsonExt, clientMutationId : $clientMutationId}) {
     clientMutationId
   }
 }
@@ -117,14 +117,14 @@ mutation createPayroll($name: String!, $benefitPlanId: UUID!, $paymentPointId: U
 gql_payroll_create_no_json_ext = """
 mutation m2 {
   createPayroll (input:{
-                name: "%s", 
-                benefitPlanId: "%s", 
+                name: "%s"
+                paymentCycleId: "%s"
+                paymentPlanId: "%s" 
                 paymentPointId: "%s"
                 paymentMethod: "%s"
                 status: %s
                 dateValidFrom: "%s"
                 dateValidTo: "%s"
-                includedUnpaid: %s
   }) {
     clientMutationId
   }
