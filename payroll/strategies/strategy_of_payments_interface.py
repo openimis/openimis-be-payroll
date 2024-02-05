@@ -38,26 +38,23 @@ class StrategyOfPaymentInterface(object,  metaclass=abc.ABCMeta):
             BillItem
         )
 
-        related_bill_ids = list(BenefitConsumption.objects.filter(
+        benefit_data = BenefitConsumption.objects.filter(
             payrollbenefitconsumption__payroll=payroll,
             is_deleted=False
-        ).values_list('benefitattachment__bill', flat=True))
+        ).values_list('id', 'benefitattachment__bill')
 
-        benefits = list(BenefitConsumption.objects.filter(
-            payrollbenefitconsumption__payroll=payroll,
-            is_deleted=False
-        ).values_list('id', flat=True))
+        benefits, related_bills = zip(*benefit_data)
 
         BenefitAttachment.objects.filter(
             benefit_id__in=benefits
         ).delete()
 
         BillItem.objects.filter(
-            bill__id__in=related_bill_ids
+            bill__id__in=related_bills
         ).delete()
 
         Bill.objects.filter(
-            id__in=related_bill_ids
+            id__in=related_bills
         ).delete()
 
         PayrollBenefitConsumption.objects.filter(payroll=payroll).delete()
