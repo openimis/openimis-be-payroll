@@ -11,7 +11,7 @@ class StrategyOfPaymentInterface(object,  metaclass=abc.ABCMeta):
     def reject_payroll(cls, payroll, user, **kwargs):
         from payroll.models import PayrollStatus
         cls.change_status_of_payroll(payroll, PayrollStatus.REJECTED, user)
-        cls._remove_benefits_from_rejected_payroll(payroll)
+        cls.remove_benefits_from_rejected_payroll(payroll)
 
     @classmethod
     def acknowledge_of_reponse_view(cls, payroll, response_from_gateway, user, rejected_bills):
@@ -27,7 +27,7 @@ class StrategyOfPaymentInterface(object,  metaclass=abc.ABCMeta):
         payroll.save(username=user.login_name)
 
     @classmethod
-    def _remove_benefits_from_rejected_payroll(cls, payroll):
+    def remove_benefits_from_rejected_payroll(cls, payroll):
         from payroll.models import (
             BenefitAttachment,
             BenefitConsumption,
