@@ -9,6 +9,8 @@ from location.gql_queries import LocationGQLType
 from individual.gql_queries import IndividualGQLType
 from payroll.models import PaymentPoint, Payroll, BenefitConsumption, BenefitAttachment
 from social_protection.gql_queries import BenefitPlanGQLType
+from contribution_plan.gql import PaymentPlanGQLType
+from payment_cycle.gql_queries import PaymentCycleGQLType
 
 
 class PaymentPointGQLType(DjangoObjectType):
@@ -29,36 +31,6 @@ class PaymentPointGQLType(DjangoObjectType):
             "version": ["exact"],
         }
         connection_class = ExtendedConnection
-
-
-class PayrollGQLType(DjangoObjectType):
-    uuid = graphene.String(source='uuid')
-    bill = graphene.List(BillGQLType)
-
-    class Meta:
-        model = Payroll
-        interfaces = (graphene.relay.Node,)
-        filter_fields = {
-            "id": ["exact"],
-            "name": ["iexact", "istartswith", "icontains"],
-            "status": ["exact", "startswith", "contains"],
-            "payment_method": ["exact", "startswith", "contains"],
-            **prefix_filterset("payment_point__", PaymentPointGQLType._meta.filter_fields),
-            **prefix_filterset("benefit_plan__", BenefitPlanGQLType._meta.filter_fields),
-
-            "date_created": ["exact", "lt", "lte", "gt", "gte"],
-            "date_updated": ["exact", "lt", "lte", "gt", "gte"],
-            "date_valid_from": ["exact", "lt", "lte", "gt", "gte"],
-            "date_valid_to": ["exact", "lt", "lte", "gt", "gte"],
-            "is_deleted": ["exact"],
-            "version": ["exact"],
-        }
-        connection_class = ExtendedConnection
-
-    def resolve_bill(self, info):
-        return Bill.objects.filter(payrollbill__payroll__id=self.id,
-                                   is_deleted=False,
-                                   payrollbill__is_deleted=False)
 
 
 class BenefitAttachmentGQLType(DjangoObjectType):
@@ -111,6 +83,37 @@ class BenefitConsumptionGQLType(DjangoObjectType):
             benefit_id=self.id,
             is_deleted=False
         )
+
+
+class PayrollGQLType(DjangoObjectType):
+    uuid = graphene.String(source='uuid')
+    benefit_consumption = graphene.List(BenefitConsumptionGQLType)
+
+    class Meta:
+        model = Payroll
+        interfaces = (graphene.relay.Node,)
+        filter_fields = {
+            "id": ["exact"],
+            "name": ["iexact", "istartswith", "icontains"],
+            "status": ["exact", "startswith", "contains"],
+            "payment_method": ["exact", "startswith", "contains"],
+            **prefix_filterset("payment_point__", PaymentPointGQLType._meta.filter_fields),
+            **prefix_filterset("payment_plan__", PaymentPlanGQLType._meta.filter_fields),
+            **prefix_filterset("payment_cycle__", PaymentCycleGQLType._meta.filter_fields),
+
+            "date_created": ["exact", "lt", "lte", "gt", "gte"],
+            "date_updated": ["exact", "lt", "lte", "gt", "gte"],
+            "date_valid_from": ["exact", "lt", "lte", "gt", "gte"],
+            "date_valid_to": ["exact", "lt", "lte", "gt", "gte"],
+            "is_deleted": ["exact"],
+            "version": ["exact"],
+        }
+        connection_class = ExtendedConnection
+
+    def resolve_benefit_consumption(self, info):
+        return BenefitConsumption.objects.filter(payrollbenefitconsumption__payroll__id=self.id,
+                                   is_deleted=False,
+                                   payrollbenefitconsumption__is_deleted=False)
 
 
 class PaymentMethodGQLType(graphene.ObjectType):

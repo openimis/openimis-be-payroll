@@ -28,17 +28,17 @@ class DeletePaymentPointInputType(OpenIMISMutation.Input):
 
 class CreatePayrollInput(OpenIMISMutation.Input):
     class PayrollStatusEnum(graphene.Enum):
-        CREATED = PayrollStatus.CREATED
-        ONGOING = PayrollStatus.ONGOING
-        AWAITING_FOR_RECONCILIATION = PayrollStatus.AWAITING_FOR_RECONCILIATION
-        RECONCILIATED = PayrollStatus.RECONCILIATED
+        PENDING_APPROVAL = PayrollStatus.PENDING_APPROVAL
+        APPROVE_FOR_PAYMENT = PayrollStatus.APPROVE_FOR_PAYMENT
+        REJECTED = PayrollStatus.REJECTED
+        RECONCILED = PayrollStatus.RECONCILED
 
     name = graphene.String(required=True, max_length=255)
-    benefit_plan_id = graphene.UUID(required=True)
+    payment_plan_id = graphene.UUID(required=True)
     payment_point_id = graphene.UUID(required=False)
+    payment_cycle_id = graphene.UUID(required=False)
     status = graphene.Field(PayrollStatusEnum, required=True)
     payment_method = graphene.String(required=True, max_length=255)
-    included_unpaid = graphene.Boolean(required=True)
 
     date_valid_from = graphene.Date(required=False)
     date_valid_to = graphene.Date(required=False)

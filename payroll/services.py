@@ -1,24 +1,24 @@
 import logging
 
 from django.db import transaction
-from django.db.models import Q
-from django.contrib.contenttypes.models import ContentType
 
 from core.custom_filters import CustomFilterWizardStorage
 from core.services import BaseService
 from core.signals import register_service_signal
-from invoice.models import Bill
 from payroll.apps import PayrollConfig
 from payroll.models import (
     PaymentPoint,
     Payroll,
     PayrollBill,
+    PayrollBenefitConsumption,
     BenefitConsumption,
     BenefitAttachment
 )
 from payroll.validation import PaymentPointValidation, PayrollValidation, BenefitConsumptionValidation
+from calculation.services import get_calculation_object
 from core.services.utils import output_exception, check_authentication
-from social_protection.models import Beneficiary
+from contribution_plan.models import PaymentPlan
+from social_protection.models import Beneficiary, BeneficiaryStatus
 from tasks_management.apps import TasksManagementConfig
 from tasks_management.models import Task
 from tasks_management.services import TaskService
@@ -56,17 +56,19 @@ class PayrollService(BaseService):
     def create(self, obj_data):
         try:
             with transaction.atomic():
-                included_unpaid = obj_data.pop("included_unpaid", False)
                 obj_data = self._adjust_create_payload(obj_data)
-                bills_queryset = self._get_bills_queryset(obj_data, included_unpaid)
-                obj_data_and_bills = {**obj_data, "bills": bills_queryset}
-                self.validation_class.validate_create(self.user, **obj_data_and_bills)
-                obj_ = self.OBJECT_TYPE(**obj_data)
-                dict_representation = self.save_instance(obj_)
-                payroll_id = dict_representation["data"]["id"]
-                self._create_payroll_bills(bills_queryset, payroll_id)
-                # create task for accepting or rejecting payroll
-                self._create_accept_payroll_task(payroll_id, obj_data)
+                payment_plan = self._get_payment_plan(obj_data)
+                date_valid_from, date_valid_to = self._get_dates_parameter(obj_data)
+                beneficiaries_queryset = self._select_beneficiary_based_on_criteria(obj_data, payment_plan)
+                payroll, dict_representation = self._save_payroll(obj_data)
+                self._generate_benefits(
+                    payment_plan,
+                    beneficiaries_queryset,
+                    date_valid_from,
+                    date_valid_to,
+                    payroll
+                )
+                self._create_accept_payroll_task(payroll.id, obj_data)
                 return dict_representation
         except Exception as exc:
             return output_exception(model_name=self.OBJECT_TYPE.__name__, method="create", exception=exc)
@@ -87,6 +89,12 @@ class PayrollService(BaseService):
         except Exception as exc:
             return output_exception(model_name=self.OBJECT_TYPE.__name__, method="delete", exception=exc)
 
+    @check_authentication
+    @register_service_signal('payroll_service.attach_benefit_to_payroll')
+    def attach_benefit_to_payroll(self, payroll_id, benefit_id):
+        payroll_benefit = PayrollBenefitConsumption(payroll_id=payroll_id, benefit_id=benefit_id)
+        payroll_benefit.save(username=self.user.username)
+
     @register_service_signal('payroll_service.create_task')
     def _create_accept_payroll_task(self, payroll_id, obj_data):
         payroll_to_accept = Payroll.objects.get(id=payroll_id)
@@ -99,24 +107,32 @@ class PayrollService(BaseService):
             'data': f"{obj_data}"
         })
 
-    def _create_payroll_bills(self, bills_queryset, payroll_id):
-        for bill in bills_queryset:
-            payroll_bill = PayrollBill(bill_id=bill.id, payroll_id=payroll_id)
-            payroll_bill.save(username=self.user.username)
+    def _save_payroll(self, obj_data):
+        obj_ = self.OBJECT_TYPE(**obj_data)
+        dict_representation = self.save_instance(obj_)
+        payroll_id = dict_representation["data"]["id"]
+        payroll = Payroll.objects.get(id=payroll_id)
+        return payroll, dict_representation
 
-    def _get_bills_queryset(self, obj_data, included_unpaid):
-        benefit_plan_id = obj_data.get("benefit_plan_id")
-        date_from = obj_data.get("date_valid_from")
-        date_to = obj_data.get("date_valid_to")
+    def _get_payment_plan(self, obj_data):
+        payment_plan_id = obj_data.get("payment_plan_id")
+        payment_plan = PaymentPlan.objects.get(id=payment_plan_id)
+        return payment_plan
+
+    def _get_dates_parameter(self, obj_data):
+        date_valid_from = obj_data.get('date_valid_from', None)
+        date_valid_to = obj_data.get('date_valid_to', None)
+        return date_valid_from, date_valid_to
+
+    def _select_beneficiary_based_on_criteria(self, obj_data, payment_plan):
         json_ext = obj_data.get("json_ext")
-
         custom_filters = [
             criterion["custom_filter_condition"]
             for criterion in json_ext.get("advanced_criteria", [])
         ] if json_ext else []
 
         beneficiaries_queryset = Beneficiary.objects.filter(
-            benefit_plan__id=benefit_plan_id
+            benefit_plan__id=payment_plan.benefit_plan.id, status=BeneficiaryStatus.ACTIVE
         )
 
         if custom_filters:
@@ -127,29 +143,17 @@ class PayrollService(BaseService):
                 beneficiaries_queryset,
             )
 
-        beneficiary_ids = list(beneficiaries_queryset.values_list('id', flat=True))
+        return beneficiaries_queryset
 
-        bills_queryset = Bill.objects.filter(
-            is_deleted=False,
-            date_bill__range=(date_from, date_to),
-            subject_type=ContentType.objects.get_for_model(Beneficiary),
-            subject_id__in=beneficiary_ids,
-            status__in=[Bill.Status.VALIDATED],
+    def _generate_benefits(self, payment_plan, beneficiaries_queryset, date_from, date_to, payroll):
+        calculation = get_calculation_object(payment_plan.calculation)
+        calculation.calculate_if_active_for_object(
+            payment_plan,
+            audit_user_id=self.user.audit_user_id,
+            start_date=date_from, end_date=date_to,
+            beneficiaries_queryset=beneficiaries_queryset,
+            payroll=payroll
         )
-
-        bills_queryset = bills_queryset.filter(
-            Q(payrollbill__isnull=True) | Q(payrollbill__is_deleted=True)
-        )
-
-        if included_unpaid:
-            bills_queryset = bills_queryset.filter(json_ext__unpaid=True)
-        else:
-            bills_queryset = bills_queryset.filter(
-                Q(json_ext__unpaid=False) |
-                Q(json_ext__unpaid__isnull=True)
-            )
-
-        return bills_queryset
 
 
 class BenefitConsumptionService(BaseService):

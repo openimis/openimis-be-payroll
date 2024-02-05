@@ -9,9 +9,11 @@ from django.test import TestCase
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 
+from contribution_plan.models import PaymentPlan
 from individual.models import Individual
 from individual.tests.data import service_add_individual_payload
 from invoice.models import Bill
+from payment_cycle.models import PaymentCycle
 from payroll.models import Payroll, PayrollBill, PayrollStatus
 from payroll.tests.data import gql_payroll_create, gql_payroll_query, gql_payroll_delete, \
     gql_payroll_create_no_json_ext
@@ -53,6 +55,8 @@ class PayrollGQLTestCase(TestCase):
         cls.benefit_plan = cls.__create_benefit_plan()
         cls.individual = cls.__create_individual()
         cls.subject_type = ContentType.objects.get_for_model(Beneficiary)
+        cls.payment_plan = cls.__create_payment_plan(cls.benefit_plan)
+        cls.payment_cycle = cls.__create_payment_cycle()
         cls.beneficiary = cls.__create_beneficiary()
         cls.bill = cls.__create_bill()
         cls.json_ext_able_bodied_false = """{"advanced_criteria": [{"custom_filter_condition": "able_bodied__boolean=False"}]}"""
@@ -72,13 +76,12 @@ class PayrollGQLTestCase(TestCase):
     def create_payroll(self, name, json_ext):
         variables = {
             "name": name,
-            "benefitPlanId": str(self.benefit_plan.id),
-            "paymentPointId": str(self.payment_point.id),
+            "paymentCycleId": str(self.payment_cycle.id),
+            "paymentPlanId": str(self.payment_plan.id),
             "paymentMethod": self.payment_method,
-            "status": PayrollStatus.CREATED,
+            "status": PayrollStatus.PENDING_APPROVAL,
             "dateValidFrom": self.date_valid_from,
             "dateValidTo": self.date_valid_to,
-            "includedUnpaid": bool(self.includedUnpaid),
             "jsonExt": json_ext,
             "clientMutationId": str(uuid.uuid4())
         }
@@ -87,7 +90,8 @@ class PayrollGQLTestCase(TestCase):
 
         payroll = Payroll.objects.filter(
             name=name,
-            benefit_plan_id=self.benefit_plan.id,
+            payment_plan_id=self.payment_plan.id,
+            payment_cycle_id=self.payment_cycle.id,
             payment_point_id=self.payment_point.id,
             payment_method=self.payment_method,
             status=self.status,
@@ -100,19 +104,20 @@ class PayrollGQLTestCase(TestCase):
     def create_payroll_no_json_ext(self, name):
         payload = gql_payroll_create_no_json_ext % (
             name,
-            self.benefit_plan.id,
+            self.payment_cycle.id,
+            self.payment_plan.id,
             self.payment_point.id,
             self.payment_method,
             self.status,
             self.date_valid_from,
             self.date_valid_to,
-            str(self.includedUnpaid).lower()
         )
         output = self.gql_client.execute(payload, context=self.gql_context)
         payroll = Payroll.objects.filter(
             name=name,
-            benefit_plan_id=self.benefit_plan.id,
+            payment_plan_id=self.payment_plan.id,
             payment_point_id=self.payment_point.id,
+            payment_cycle_id=self.payment_cycle.id,
             payment_method=self.payment_method,
             status=self.status,
             date_valid_from=self.date_valid_from,
@@ -159,27 +164,25 @@ class PayrollGQLTestCase(TestCase):
         self.delete_payroll_and_check_bill(payroll_tmp)
 
     def test_create_unauthorized(self):
-
         variables = {
             "name": self.name,
-            "benefitPlanId": str(self.benefit_plan.id),
-            "paymentPointId": str(self.payment_point.id),
+            "paymentCycleId": str(self.payment_cycle.id),
+            "paymentPlanId": str(self.payment_plan.id),
             "paymentMethod": self.payment_method,
-            "status": PayrollStatus.CREATED,
+            "status": PayrollStatus.PENDING_APPROVAL,
             "dateValidFrom": self.date_valid_from,
             "dateValidTo": self.date_valid_to,
-            "includedUnpaid": bool(self.includedUnpaid),
             "jsonExt": self.json_ext_able_bodied_false,
             "clientMutationId": str(uuid.uuid4())
         }
-
 
         output = self.gql_client.execute(
             gql_payroll_create, context=self.gql_context_unauthorized, variable_values=variables)
         self.assertFalse(
             Payroll.objects.filter(
                 name=self.name,
-                benefit_plan_id=self.benefit_plan.id,
+                payment_plan_id=self.benefit_plan.id,
+                payment_cycle_id=self.payment_cycle.id,
                 payment_point_id=self.payment_point.id,
                 payment_method=self.payment_method,
                 status=self.status,
@@ -192,8 +195,9 @@ class PayrollGQLTestCase(TestCase):
 
     def test_delete(self):
         payroll = Payroll(name=self.name,
-                          benefit_plan_id=self.benefit_plan.id,
+                          payment_plan_id=self.payment_plan.id,
                           payment_point_id=self.payment_point.id,
+                          payment_cycle_id=self.payment_cycle.id,
                           payment_method=self.payment_method,
                           status=self.status,
                           date_valid_from=self.date_valid_from,
@@ -210,7 +214,8 @@ class PayrollGQLTestCase(TestCase):
 
     def test_delete_unauthorized(self):
         payroll = Payroll(name=self.name,
-                          benefit_plan_id=self.benefit_plan.id,
+                          payment_plan_id=self.payment_plan.id,
+                          payment_cycle_id=self.payment_cycle.id,
                           payment_point_id=self.payment_point.id,
                           payment_method=self.payment_method,
                           status=self.status,
@@ -228,26 +233,6 @@ class PayrollGQLTestCase(TestCase):
         payroll_bill.delete(username=self.user.username)
         self.assertTrue(PayrollBill.objects.filter(payroll=payroll, bill=self.bill, is_deleted=True))
 
-    def test_check_bill_included_unpaid(self):
-        self.bill.json_ext = {"unpaid": True}
-        self.bill.save(username=self.user.username)
-        bills_queryset_not_paid = Bill.objects.filter(json_ext__unpaid=True)
-        bills_queryset = Bill.objects.filter(
-            Q(json_ext__unpaid=False) |
-            Q(json_ext__unpaid__isnull=True)
-        )
-        self.assertGreaterEqual(bills_queryset_not_paid.count(), 1)
-        self.assertEqual(bills_queryset.count(), 0)
-
-    def test_check_bill_not_included_unpaid(self):
-        bills_queryset_not_paid = Bill.objects.filter(json_ext__unpaid=True)
-        bills_queryset = Bill.objects.filter(
-            Q(json_ext__unpaid=False) |
-            Q(json_ext__unpaid__isnull=True)
-        )
-        self.assertEqual(bills_queryset_not_paid.count(), 0)
-        self.assertGreaterEqual(bills_queryset.count(), 1)
-
     @classmethod
     def __create_benefit_plan(cls):
         object_data = {
@@ -258,6 +243,28 @@ class PayrollGQLTestCase(TestCase):
         benefit_plan.save(username=cls.user.username)
 
         return benefit_plan
+
+    @classmethod
+    def __create_payment_plan(cls, benefit_plan):
+        object_data = {
+            'is_deleted': False,
+            'code': "PP-E",
+            'name': "Example Payment Plan",
+            'benefit_plan': benefit_plan,
+            'periodicity': 1,
+            'calculation': "32d96b58-898a-460a-b357-5fd4b95cd87c",
+            'json_ext': {},
+        }
+
+        payment_plan = PaymentPlan(**object_data)
+        payment_plan.save(username=cls.user.username)
+        return payment_plan
+
+    @classmethod
+    def __create_payment_cycle(cls):
+        pc = PaymentCycle(run_year=2023, run_month=2, type=ContentType.objects.get_for_model(BenefitPlan))
+        pc.save(username=cls.user.username)
+        return pc
 
     @classmethod
     def __create_individual(cls):
