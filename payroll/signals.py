@@ -16,10 +16,14 @@ imis_modules = openimis_apps()
 
 def bind_service_signals():
     def on_task_complete_accept_payroll(**kwargs):
-        def accept_payroll(payroll, user):
-            strategy = PaymentMethodStorage.get_chosen_payment_method(payroll.payment_method)
+        def accept_payroll(payroll, strategy, user):
             if strategy:
                 strategy.accept_payroll(payroll, user)
+
+        def reject_payroll(payroll, strategy, user):
+            if strategy:
+                strategy.reject_payroll(payroll, user)
+
         try:
             result = kwargs.get('result', None)
             task = result['data']['task']
@@ -28,9 +32,12 @@ def bind_service_signals():
                     and result['success'] \
                     and task['business_event'] == PayrollConfig.payroll_accept_event:
                 task_status = task['status']
+                payroll = Payroll.objects.get(id=task['entity_id'])
+                strategy = PaymentMethodStorage.get_chosen_payment_method(payroll.payment_method)
                 if task_status == Task.Status.COMPLETED:
-                    payroll = Payroll.objects.get(id=task['entity_id'])
-                    accept_payroll(payroll, user)
+                    accept_payroll(payroll, strategy, user)
+                if task_status == Task.Status.FAILED:
+                    reject_payroll(payroll, strategy, user)
         except Exception as exc:
             logger.error("Error while executing on_task_complete_accept_payroll", exc_info=exc)
 
