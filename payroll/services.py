@@ -61,11 +61,6 @@ class PayrollService(BaseService):
                 date_valid_from, date_valid_to = self._get_dates_parameter(obj_data)
                 beneficiaries_queryset = self._select_beneficiary_based_on_criteria(obj_data, payment_plan)
                 payroll, dict_representation = self._save_payroll(obj_data)
-                print(payroll, dict_representation)
-                print(payment_plan)
-                print(beneficiaries_queryset)
-                print(date_valid_from)
-                print(date_valid_to)
                 self._generate_benefits(
                     payment_plan,
                     beneficiaries_queryset,
@@ -76,7 +71,6 @@ class PayrollService(BaseService):
                 self._create_accept_payroll_task(payroll.id, obj_data)
                 return dict_representation
         except Exception as exc:
-            print(exc)
             return output_exception(model_name=self.OBJECT_TYPE.__name__, method="create", exception=exc)
 
     @register_service_signal('payroll_service.update')
