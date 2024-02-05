@@ -28,14 +28,32 @@ class StrategyOfPaymentInterface(object,  metaclass=abc.ABCMeta):
 
     @classmethod
     def _remove_benefits_from_rejected_payroll(cls, payroll):
-        from payroll.models import BenefitAttachment, BenefitConsumption
-        from invoice.models import Bill, BillItem
-        benefits = BenefitConsumption.objects.filter(
+        from payroll.models import (
+            BenefitAttachment,
+            BenefitConsumption,
+            PayrollBenefitConsumption
+        )
+        from invoice.models import (
+            Bill,
+            BillItem
+        )
+        benefits = list(BenefitConsumption.objects.filter(
             payrollbenefitconsumption__payroll__id=payroll.id,
             is_deleted=False
-        )
+        ).values_list('id', flat=True).distinct())
         # remove from db all related fields to payroll, no business need to keep them in db
-        BillItem.objects.filter(bill__benefitattachment__benefit_id__in=benefits)
-        Bill.objects.filter(benefitattachment__benefit_id__in=benefits)
+        bill_items = list(
+            BillItem.objects.filter(
+                bill__benefitattachment__benefit_id__in=benefits
+            ).values_list('id', flat=True).distinct()
+        )
+        bills = list(
+            Bill.objects.filter(
+                benefitattachment__benefit_id__in=benefits
+            ).values_list('id', flat=True).distinct()
+        )
         BenefitAttachment.objects.filter(benefit_id__in=benefits).delete()
-        benefits.delete()
+        BillItem.objects.filter(id__in=bill_items).delete()
+        Bill.objects.filter(id__in=bills).delete()
+        PayrollBenefitConsumption.objects.filter(payroll_id=payroll.id).delete()
+        BenefitConsumption.objects.filter(id__in=benefits).delete()
