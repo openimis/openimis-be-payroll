@@ -59,12 +59,12 @@ class PayrollConfig(AppConfig):
         from payroll.strategies import (
             StrategyOnlinePayment,
             StrategyMobilePayment,
-            StrategyOnSitePayment
+            StrategyOfflinePayment
         )
         PaymentsMethodRegistryPoint.register_payment_method(
             payment_method_class_list=[
                 StrategyOnlinePayment(),
                 StrategyMobilePayment(),
-                StrategyOnSitePayment()
+                StrategyOfflinePayment()
             ]
         )
