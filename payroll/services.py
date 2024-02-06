@@ -15,6 +15,7 @@ from payroll.models import (
     BenefitAttachment
 )
 from payroll.validation import PaymentPointValidation, PayrollValidation, BenefitConsumptionValidation
+from payroll.strategies import StrategyOfPaymentInterface
 from calculation.services import get_calculation_object
 from core.services.utils import output_exception, check_authentication
 from contribution_plan.models import PaymentPlan
@@ -85,7 +86,7 @@ class PayrollService(BaseService):
             with transaction.atomic():
                 self.validation_class.validate_delete(self.user, **obj_data)
                 obj_ = self.OBJECT_TYPE.objects.filter(id=obj_data['id']).first()
-                PayrollBill.objects.filter(payroll=obj_).delete()
+                StrategyOfPaymentInterface.remove_benefits_from_rejected_payroll(payroll=obj_)
                 return self.delete_instance(obj_)
         except Exception as exc:
             return output_exception(model_name=self.OBJECT_TYPE.__name__, method="delete", exception=exc)
