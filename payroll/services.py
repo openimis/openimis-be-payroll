@@ -152,7 +152,7 @@ class PayrollService(BaseService):
         calculation = get_calculation_object(payment_plan.calculation)
         calculation.calculate_if_active_for_object(
             payment_plan,
-            audit_user_id=self.user.audit_user_id,
+            user_id=self.user.id,
             start_date=date_from, end_date=date_to,
             beneficiaries_queryset=beneficiaries_queryset,
             payroll=payroll
