@@ -12,7 +12,8 @@ from location.services import get_ancestor_location_filter
 from payroll.apps import PayrollConfig
 from payroll.gql_mutations import CreatePaymentPointMutation, UpdatePaymentPointMutation, DeletePaymentPointMutation, \
     CreatePayrollMutation, DeletePayrollMutation
-from payroll.gql_queries import BenefitConsumptionGQLType, PaymentPointGQLType, PayrollGQLType, PaymentMethodGQLType, PaymentMethodListGQLType
+from payroll.gql_queries import BenefitConsumptionGQLType, PaymentPointGQLType, PayrollGQLType, PaymentMethodGQLType, \
+    PaymentMethodListGQLType
 from payroll.models import PaymentPoint, Payroll, BenefitConsumption
 from payroll.payments_registry import PaymentMethodStorage
 
@@ -55,6 +56,16 @@ class Query(graphene.ObjectType):
         PaymentMethodListGQLType,
     )
 
+    benefit_consumption_by_payroll = OrderedDjangoFilterConnectionField(
+        BenefitConsumptionGQLType,
+        orderBy=graphene.List(of_type=graphene.String),
+        dateValidFrom__Gte=graphene.DateTime(),
+        dateValidTo__Lte=graphene.DateTime(),
+        applyDefaultValidityFilter=graphene.Boolean(),
+        client_mutation_id=graphene.String(),
+        payroll_uuid=graphene.UUID(required=True)
+    )
+
     def resolve_bill_by_payroll(self, info, **kwargs):
         Query._check_permissions(info.context.user, PayrollConfig.gql_payroll_search_perms)
         filters = [*append_validity_filter(**kwargs), Q(payrollbill__payroll_id=kwargs.get("payroll_uuid"),
@@ -75,6 +86,20 @@ class Query(graphene.ObjectType):
             filters.append(Q(thirdparty_type__model=thirdparty_type))
 
         return gql_optimizer.query(Bill.objects.filter(*filters), info)
+
+    def resolve_benefit_consumption_by_payroll(self, info, **kwargs):
+        Query._check_permissions(info.context.user, PayrollConfig.gql_payroll_search_perms)
+        filters = [*append_validity_filter(**kwargs),
+                   Q(payrollbenefitconsumption__payroll_id=kwargs.get("payroll_uuid"),
+                     is_deleted=False,
+                     payrollbenefitconsumption__is_deleted=False,
+                     payrollbenefitconsumption__payroll__is_deleted=False)]
+
+        client_mutation_id = kwargs.get("client_mutation_id", None)
+        if client_mutation_id:
+            filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
+
+        return gql_optimizer.query(BenefitConsumption.objects.filter(*filters), info)
 
     def resolve_payment_point(self, info, **kwargs):
         Query._check_permissions(info.context.user, PayrollConfig.gql_payment_point_search_perms)
