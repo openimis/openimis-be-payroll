@@ -8,7 +8,7 @@ from core.gql.gql_mutations.base_mutation import BaseHistoryModelCreateMutationM
     BaseHistoryModelUpdateMutationMixin, BaseHistoryModelDeleteMutationMixin
 from core.schema import OpenIMISMutation
 from payroll.apps import PayrollConfig
-from payroll.models import PaymentPoint, Payroll, PayrollStatus
+from payroll.models import PaymentPoint, Payroll, PayrollStatus, PayrollMutation
 from payroll.services import PaymentPointService, PayrollService
 
 
@@ -136,13 +136,18 @@ class CreatePayrollMutation(BaseHistoryModelCreateMutationMixin, BaseMutation):
 
     @classmethod
     def _mutate(cls, user, **data):
-        if "client_mutation_id" in data:
-            data.pop('client_mutation_id')
+        client_mutation_id = data.pop('client_mutation_id', None)
         if "client_mutation_label" in data:
             data.pop('client_mutation_label')
 
         service = PayrollService(user)
         response = service.create(data)
+        if client_mutation_id and response['success']:
+            payroll_id = response['data']['id']
+            payroll = Payroll.objects.get(id=payroll_id)
+            PayrollMutation.object_mutated(
+                user, client_mutation_id=client_mutation_id, payroll=payroll
+            )
         if not response['success']:
             return response
         return None
