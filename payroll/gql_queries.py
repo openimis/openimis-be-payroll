@@ -4,11 +4,9 @@ from graphene_django import DjangoObjectType
 from core import prefix_filterset, ExtendedConnection
 from core.gql_queries import UserGQLType
 from invoice.gql.gql_types.bill_types import BillGQLType
-from invoice.models import Bill
 from location.gql_queries import LocationGQLType
 from individual.gql_queries import IndividualGQLType
 from payroll.models import PaymentPoint, Payroll, BenefitConsumption, BenefitAttachment
-from social_protection.gql_queries import BenefitPlanGQLType
 from contribution_plan.gql import PaymentPlanGQLType
 from payment_cycle.gql_queries import PaymentCycleGQLType
 
@@ -122,3 +120,24 @@ class PaymentMethodGQLType(graphene.ObjectType):
 
 class PaymentMethodListGQLType(graphene.ObjectType):
     payment_methods = graphene.List(PaymentMethodGQLType)
+
+
+class BenefitAttachmentListGQLType(DjangoObjectType):
+    uuid = graphene.String(source='uuid')
+
+    class Meta:
+        model = BenefitAttachment
+        interfaces = (graphene.relay.Node,)
+        filter_fields = {
+            "id": ["exact"],
+            **prefix_filterset("bill__", BillGQLType._meta.filter_fields),
+            **prefix_filterset("benefit__", BenefitConsumptionGQLType._meta.filter_fields),
+
+            "date_created": ["exact", "lt", "lte", "gt", "gte"],
+            "date_updated": ["exact", "lt", "lte", "gt", "gte"],
+            "date_valid_from": ["exact", "lt", "lte", "gt", "gte"],
+            "date_valid_to": ["exact", "lt", "lte", "gt", "gte"],
+            "is_deleted": ["exact"],
+            "version": ["exact"],
+        }
+        connection_class = ExtendedConnection
