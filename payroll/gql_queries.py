@@ -120,3 +120,24 @@ class PaymentMethodGQLType(graphene.ObjectType):
 
 class PaymentMethodListGQLType(graphene.ObjectType):
     payment_methods = graphene.List(PaymentMethodGQLType)
+
+
+class BenefitAttachmentListGQLType(DjangoObjectType):
+    uuid = graphene.String(source='uuid')
+
+    class Meta:
+        model = BenefitAttachment
+        interfaces = (graphene.relay.Node,)
+        filter_fields = {
+            "id": ["exact"],
+            **prefix_filterset("bill__", BillGQLType._meta.filter_fields),
+            **prefix_filterset("benefit__", BenefitConsumptionGQLType._meta.filter_fields),
+
+            "date_created": ["exact", "lt", "lte", "gt", "gte"],
+            "date_updated": ["exact", "lt", "lte", "gt", "gte"],
+            "date_valid_from": ["exact", "lt", "lte", "gt", "gte"],
+            "date_valid_to": ["exact", "lt", "lte", "gt", "gte"],
+            "is_deleted": ["exact"],
+            "version": ["exact"],
+        }
+        connection_class = ExtendedConnection
