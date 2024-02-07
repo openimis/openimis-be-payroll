@@ -4,11 +4,9 @@ from graphene_django import DjangoObjectType
 from core import prefix_filterset, ExtendedConnection
 from core.gql_queries import UserGQLType
 from invoice.gql.gql_types.bill_types import BillGQLType
-from invoice.models import Bill
 from location.gql_queries import LocationGQLType
 from individual.gql_queries import IndividualGQLType
 from payroll.models import PaymentPoint, Payroll, BenefitConsumption, BenefitAttachment
-from social_protection.gql_queries import BenefitPlanGQLType
 from contribution_plan.gql import PaymentPlanGQLType
 from payment_cycle.gql_queries import PaymentCycleGQLType
 

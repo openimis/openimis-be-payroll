@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils.translation import gettext as _
 
-from core.models import HistoryModel, HistoryBusinessModel, User
+from core.models import HistoryModel, HistoryBusinessModel, User, UUIDModel, ObjectMutation, MutationLog
 from core.fields import DateField
 from invoice.models import Bill
 from location.models import Location
@@ -84,3 +84,9 @@ class PayrollBenefitConsumption(HistoryModel):
     # 1:n it is ensured by the service
     payroll = models.ForeignKey(Payroll, on_delete=models.DO_NOTHING)
     benefit = models.ForeignKey(BenefitConsumption, on_delete=models.DO_NOTHING)
+
+
+class PayrollMutation(UUIDModel, ObjectMutation):
+    payroll = models.ForeignKey(Payroll, models.DO_NOTHING, related_name='mutations')
+    mutation = models.ForeignKey(
+        MutationLog, models.DO_NOTHING, related_name='payroll')
