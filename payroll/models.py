@@ -17,13 +17,13 @@ class PayrollStatus(models.TextChoices):
 class PaymentPoint(HistoryModel):
     name = models.CharField(max_length=255)
     location = models.ForeignKey(Location, models.DO_NOTHING)
-    ppm = models.ForeignKey(User, models.DO_NOTHING, null=True)
+    ppm = models.ForeignKey(User, models.DO_NOTHING,  blank=True, null=True)
 
 
 class Payroll(HistoryBusinessModel):
     name = models.CharField(max_length=255, blank=False, null=False)
     benefit_plan = models.ForeignKey(BenefitPlan, on_delete=models.DO_NOTHING)
-    payment_point = models.ForeignKey(PaymentPoint, on_delete=models.DO_NOTHING, null=True)
+    payment_point = models.ForeignKey(PaymentPoint, on_delete=models.DO_NOTHING,  blank=True, null=True)
     status = models.CharField(
         max_length=100, choices=PayrollStatus.choices, default=PayrollStatus.CREATED, null=False
     )
