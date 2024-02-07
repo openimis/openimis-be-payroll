@@ -1,3 +1,6 @@
+from datetime import date
+
+
 gql_payment_point_query = """
 query q1 {
   paymentPoint {
@@ -72,7 +75,7 @@ query q2 {
 gql_payroll_filter = """
 query q2 {
   paymentPoint(name_Iexact: "%s", 
-                benefitPlan_Uuid: "%s", 
+                paymentPlan_Uuid: "%s", 
                 paymentPoint_Uuid: "%s"
                 dateValidFrom: "%s"
                 dateValidTo: "%s") {
@@ -85,18 +88,27 @@ query q2 {
 }
 """
 
+# gql_payroll_create = """
+# mutation m2 {{
+#   createPayroll (input:{{
+#                 name: "{name}",
+#                 benefitPlanId: "{benefit_plan_id}",
+#                 paymentPointId: "{payment_point_id}"
+#                 paymentMethod: "{payment_method}"
+#                 status: {status}
+#                 dateValidFrom: "{date_valid_from}"
+#                 dateValidTo: "{date_valid_to}"
+#                 includedUnpaid: {include_unpaid}
+#                 jsonExt: "{json_ext}"
+#   }}) {{
+#     clientMutationId
+#   }}
+# }}
+# """
+
 gql_payroll_create = """
-mutation m2 {
-  createPayroll (input:{
-                name: "%s", 
-                benefitPlanId: "%s", 
-                paymentPointId: "%s"
-                paymentMethod: "%s"
-                status: %s
-                dateValidFrom: "%s"
-                dateValidTo: "%s"
-                jsonExt: "%s"
-  }) {
+mutation createPayroll($name: String!, $paymentCycleId: UUID!, $paymentPlanId: UUID!, $paymentPointId: UUID!, $paymentMethod: String!, $status: PayrollStatusEnum!, $dateValidFrom: Date, $dateValidTo: Date, $includedUnpaid: Boolean!, $jsonExt: JSONString, $clientMutationId: String) {
+  createPayroll(input: {name: $name, paymentCycleId: $paymentCycleId, paymentPlanId: $paymentPlanId, paymentPointId: $paymentPointId, paymentMethod: $paymentMethod, status: $status, dateValidFrom: $dateValidFrom, dateValidTo: $dateValidTo, jsonExt: $jsonExt, clientMutationId : $clientMutationId}) {
     clientMutationId
   }
 }
@@ -105,8 +117,9 @@ mutation m2 {
 gql_payroll_create_no_json_ext = """
 mutation m2 {
   createPayroll (input:{
-                name: "%s", 
-                benefitPlanId: "%s", 
+                name: "%s"
+                paymentCycleId: "%s"
+                paymentPlanId: "%s" 
                 paymentPointId: "%s"
                 paymentMethod: "%s"
                 status: %s
@@ -125,6 +138,34 @@ mutation m2 {
     ids: %s
   }) {
     clientMutationId
+  }
+}
+"""
+
+benefit_consumption_data_test = {
+    "photo": "photo-test.jpg",
+    "code": "BC123-TEST",
+    "date_due": date(2023, 5, 31),
+    "receipt": "REC-BC123-TEST",
+    "amount": 500.00,
+    "type": "Cash",
+    "status": "ACCEPTED",
+}
+
+
+benefit_consumption_data_update = {
+    "code": "BC123-fixed-fix",
+}
+
+
+gql_benefit_consumption_query = """
+query q2 {
+  benefitConsumption {
+    edges {
+      node {
+        id
+      }
+    }
   }
 }
 """
