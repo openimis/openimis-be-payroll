@@ -14,7 +14,7 @@ DEFAULT_CONFIG = {
     "gql_payroll_create_perms": ["202002"],
     "gql_payroll_delete_perms": ["202004"],
     "payroll_accept_event": "payroll.accept_payroll",
-    "csv_reconciliation_event": "payroll.payroll_reconciliation",
+    "payroll_reconciliation_event": "payroll.payroll_reconciliation",
     "csv_reconciliation_field_mapping": {
         'payrollbenefitconsumption__payroll__name': 'Payroll Name',
         'payrollbenefitconsumption__payroll__status': 'Payroll Status',
