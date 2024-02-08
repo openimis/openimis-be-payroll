@@ -3,7 +3,6 @@ from django.apps import AppConfig
 from core.custom_filters import CustomFilterRegistryPoint
 from payroll.payments_registry import PaymentsMethodRegistryPoint
 
-
 MODULE_NAME = 'payroll'
 
 DEFAULT_CONFIG = {
@@ -15,7 +14,24 @@ DEFAULT_CONFIG = {
     "gql_payroll_create_perms": ["202002"],
     "gql_payroll_delete_perms": ["202004"],
     "payroll_accept_event": "payroll.accept_payroll",
-    "payroll_reconciliation_event": "payroll.payroll_reconciliation"
+    "csv_reconciliation_event": "payroll.payroll_reconciliation",
+    "csv_reconciliation_field_mapping": {
+        'payrollbenefitconsumption__payroll__name': 'Payroll Name',
+        'payrollbenefitconsumption__payroll__status': 'Payroll Status',
+        'individual__first_name': 'First Name',
+        'individual__last_name': 'Last Name',
+        'individual__dob': 'Date of Birth',
+        'code': 'Code',
+        'status': 'Status',
+        'amount': 'Amount',
+        'type': 'Type',
+        'receipt': 'Receipt',
+    },
+    "csv_reconciliation_status_column": "status",
+    "csv_reconciliation_paid_extra_field": "Paid",
+    "csv_reconciliation_receipt_column": "receipt",
+    "csv_reconciliation_paid_yes": "Yes",
+    "csv_reconciliation_paid_no": "No",
 }
 
 
@@ -32,6 +48,12 @@ class PayrollConfig(AppConfig):
     gql_payroll_delete_perms = None
     payroll_accept_event = None
     payroll_reconciliation_event = None
+    csv_reconciliation_field_mapping = None
+    csv_reconciliation_status_column = None
+    csv_reconciliation_paid_extra_field = None
+    csv_reconciliation_receipt_column = None
+    csv_reconciliation_paid_yes = None
+    csv_reconciliation_paid_no = None
 
     def ready(self):
         from core.models import ModuleConfiguration
