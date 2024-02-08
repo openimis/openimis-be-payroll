@@ -11,7 +11,7 @@ from invoice.models import Bill
 from location.services import get_ancestor_location_filter
 from payroll.apps import PayrollConfig
 from payroll.gql_mutations import CreatePaymentPointMutation, UpdatePaymentPointMutation, DeletePaymentPointMutation, \
-    CreatePayrollMutation, DeletePayrollMutation
+    CreatePayrollMutation, DeletePayrollMutation, ClosePayrollMutation, RejectPayrollMutation
 from payroll.gql_queries import BenefitConsumptionGQLType, PaymentPointGQLType, PayrollGQLType, PaymentMethodGQLType, \
     PaymentMethodListGQLType, BenefitAttachmentListGQLType
 from payroll.models import PaymentPoint, Payroll, BenefitConsumption, BenefitAttachment
@@ -195,3 +195,5 @@ class Mutation(graphene.ObjectType):
 
     create_payroll = CreatePayrollMutation.Field()
     delete_payroll = DeletePayrollMutation.Field()
+    close_payroll = ClosePayrollMutation.Field()
+    reject_payroll = RejectPayrollMutation.Field()

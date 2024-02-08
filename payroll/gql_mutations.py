@@ -49,6 +49,10 @@ class DeletePayrollInputType(DeletePaymentPointInputType):
     pass
 
 
+class ClosePayrollInputType(DeletePaymentPointInputType):
+    pass
+
+
 class CreatePaymentPointMutation(BaseHistoryModelCreateMutationMixin, BaseMutation):
     _mutation_class = "CreatePaymentPointMutation"
     _mutation_module = PayrollConfig.name
@@ -180,6 +184,64 @@ class DeletePayrollMutation(BaseHistoryModelDeleteMutationMixin, BaseMutation):
             with transaction.atomic():
                 for id in ids:
                     service.delete({'id': id})
+
+    class Input(DeletePayrollInputType):
+        pass
+
+
+class ClosePayrollMutation(BaseHistoryModelDeleteMutationMixin, BaseMutation):
+    _mutation_class = "ClosePayrollMutation"
+    _mutation_module = "payroll"
+    _model = Payroll
+
+    @classmethod
+    def _validate_mutation(cls, user, **data):
+        if type(user) is AnonymousUser or not user.has_perms(
+                PayrollConfig.gql_payroll_delete_perms):
+            raise ValidationError("mutation.authentication_required")
+
+    @classmethod
+    def _mutate(cls, user, **data):
+        if "client_mutation_id" in data:
+            data.pop('client_mutation_id')
+        if "client_mutation_label" in data:
+            data.pop('client_mutation_label')
+
+        service = PayrollService(user)
+        ids = data.get('ids')
+        if ids:
+            with transaction.atomic():
+                for id in ids:
+                    service.close_payroll({'id': id})
+
+    class Input(DeletePayrollInputType):
+        pass
+
+
+class RejectPayrollMutation(BaseHistoryModelDeleteMutationMixin, BaseMutation):
+    _mutation_class = "RejectPayrollMutation"
+    _mutation_module = "payroll"
+    _model = Payroll
+
+    @classmethod
+    def _validate_mutation(cls, user, **data):
+        if type(user) is AnonymousUser or not user.has_perms(
+                PayrollConfig.gql_payroll_delete_perms):
+            raise ValidationError("mutation.authentication_required")
+
+    @classmethod
+    def _mutate(cls, user, **data):
+        if "client_mutation_id" in data:
+            data.pop('client_mutation_id')
+        if "client_mutation_label" in data:
+            data.pop('client_mutation_label')
+
+        service = PayrollService(user)
+        ids = data.get('ids')
+        if ids:
+            with transaction.atomic():
+                for id in ids:
+                    service.reject_approved_payroll({'id': id})
 
     class Input(DeletePayrollInputType):
         pass

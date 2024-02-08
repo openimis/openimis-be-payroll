@@ -9,11 +9,11 @@ from payroll.apps import PayrollConfig
 from payroll.models import (
     PaymentPoint,
     Payroll,
-    PayrollBill,
     PayrollBenefitConsumption,
     BenefitConsumption,
     BenefitAttachment
 )
+from payroll.payments_registry import PaymentMethodStorage
 from payroll.validation import PaymentPointValidation, PayrollValidation, BenefitConsumptionValidation
 from payroll.strategies import StrategyOfPaymentInterface
 from calculation.services import get_calculation_object
@@ -70,7 +70,7 @@ class PayrollService(BaseService):
                     date_valid_to,
                     payroll
                 )
-                self._create_accept_payroll_task(payroll.id, obj_data)
+                self.create_accept_payroll_task(payroll.id, obj_data)
                 return dict_representation
         except Exception as exc:
             return output_exception(model_name=self.OBJECT_TYPE.__name__, method="create", exception=exc)
@@ -98,7 +98,7 @@ class PayrollService(BaseService):
         payroll_benefit.save(username=self.user.username)
 
     @register_service_signal('payroll_service.create_task')
-    def _create_accept_payroll_task(self, payroll_id, obj_data):
+    def create_accept_payroll_task(self, payroll_id, obj_data):
         payroll_to_accept = Payroll.objects.get(id=payroll_id)
         data = {**obj_data, 'id': payroll_id}
         TaskService(self.user).create({
@@ -107,6 +107,32 @@ class PayrollService(BaseService):
             'status': Task.Status.RECEIVED,
             'executor_action_event': TasksManagementConfig.default_executor_event,
             'business_event': PayrollConfig.payroll_accept_event,
+            'data': _get_std_task_data_payload(data)
+        })
+
+    @register_service_signal('payroll_service.close_payroll')
+    def close_payroll(self, obj_data):
+        payroll_to_close = Payroll.objects.get(id=obj_data['id'])
+        data = {'id': payroll_to_close.id}
+        TaskService(self.user).create({
+            'source': 'payroll_reconciliation',
+            'entity': payroll_to_close,
+            'status': Task.Status.RECEIVED,
+            'executor_action_event': TasksManagementConfig.default_executor_event,
+            'business_event': PayrollConfig.payroll_reconciliation_event,
+            'data': _get_std_task_data_payload(data)
+        })
+
+    @register_service_signal('payroll_service.reject_approve_payroll')
+    def reject_approved_payroll(self, obj_data):
+        payroll_to_reject = Payroll.objects.get(id=obj_data['id'])
+        data = {'id': payroll_to_reject.id}
+        TaskService(self.user).create({
+            'source': 'payroll_reject',
+            'entity': payroll_to_reject,
+            'status': Task.Status.RECEIVED,
+            'executor_action_event': TasksManagementConfig.default_executor_event,
+            'business_event': PayrollConfig.payroll_reject_event,
             'data': _get_std_task_data_payload(data)
         })
 

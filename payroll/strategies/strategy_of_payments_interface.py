@@ -14,6 +14,34 @@ class StrategyOfPaymentInterface(object,  metaclass=abc.ABCMeta):
         cls.remove_benefits_from_rejected_payroll(payroll)
 
     @classmethod
+    def reject_approved_payroll(cls, payroll, user):
+        from core.services.utils.serviceUtils import model_representation
+        from payroll.models import (
+            BenefitConsumption,
+            BenefitConsumptionStatus,
+            PayrollStatus
+        )
+        from invoice.models import (
+            DetailPaymentInvoice,
+            PaymentInvoice
+        )
+        from payroll.services import PayrollService
+
+        benefit_data = BenefitConsumption.objects.filter(
+            payrollbenefitconsumption__payroll=payroll,
+            status=BenefitConsumptionStatus.RECONCILED,
+            is_deleted=False
+        )
+        related_bills = benefit_data.values_list('id', 'benefitattachment__bill')
+
+        for benefit in benefit_data:
+            benefit.receipt = None
+            benefit.status = BenefitConsumptionStatus.ACCEPTED
+            benefit.save(username=user.username)
+        cls.change_status_of_payroll(payroll, PayrollStatus.PENDING_APPROVAL, user)
+        PayrollService(user).create_accept_payroll_task(payroll.id, model_representation(payroll))
+
+    @classmethod
     def acknowledge_of_reponse_view(cls, payroll, response_from_gateway, user, rejected_bills):
         pass
 
