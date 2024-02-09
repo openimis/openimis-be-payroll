@@ -1,18 +1,13 @@
 import logging
-from io import BytesIO
-
-import pandas as pd
 
 from django.core.files.storage import default_storage
-from django.db import transaction
 from rest_framework import views
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
 from im_export.views import check_user_rights
-from invoice.models import Bill
 from payroll.apps import PayrollConfig
-from payroll.models import Payroll, BenefitConsumption, BenefitConsumptionStatus, PayrollStatus
+from payroll.models import Payroll, CsvReconciliationUpload
 from payroll.payments_registry import PaymentMethodStorage
 from payroll.services import CsvReconciliationService
 
@@ -60,6 +55,7 @@ def _resolve_send_callback_to_imis_args(request):
 
 
 class CSVReconciliationAPIView(views.APIView):
+    permission_classes = [check_user_rights(PayrollConfig.gql_csv_reconciliation_create_perms, )]
     def get(self, request):
         try:
             payroll_id = request.GET.get('payroll_id')
@@ -77,19 +73,31 @@ class CSVReconciliationAPIView(views.APIView):
             return Response({'success': False, 'error': str(exc)}, status=500)
 
     def post(self, request):
+        upload = CsvReconciliationUpload()
         try:
+            upload.save(username=request.user.login_name)
             payroll_id = request.GET.get('payroll_id')
             file = request.FILES.get('file')
             target_file_path = f"csv_reconciliation/payroll_{payroll_id}/{file.name}"
             service = CsvReconciliationService(request.user)
             if default_storage.exists(target_file_path):
                 raise ValueError("csv_reconciliation.validation.file_already_exists")
-            service.upload_reconciliation(payroll_id, file)
+            service.upload_reconciliation(payroll_id, file, upload)
+            upload.status = CsvReconciliationUpload.Status.SUCCESS
+            upload.save(username=request.user.login_name)
             default_storage.save(target_file_path, file)
             return Response({'success': True, 'error': None}, status=201)
         except ValueError as exc:
             logger.error("Error while uploading CSV reconciliation", exc_info=exc)
+            if upload:
+                upload.error = {'error': str(exc)}
+                upload.status = CsvReconciliationUpload.Status.FAIL
+                upload.save(username=request.user.login_name)
             return Response({'success': False, 'error': str(exc)}, status=400)
         except Exception as exc:
             logger.error("Unexpected error while uploading CSV reconciliation", exc_info=exc)
+            if upload:
+                upload.error = {'error': str(exc)}
+                upload.status = CsvReconciliationUpload.Status.FAIL
+                upload.save(username=request.user.login_name)
             return Response({'success': False, 'error': str(exc)}, status=500)

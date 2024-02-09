@@ -7,6 +7,7 @@ from django.db import transaction
 
 from core import datetime
 from core.custom_filters import CustomFilterWizardStorage
+from core.models import InteractiveUser
 from core.services import BaseService
 from core.signals import register_service_signal
 from invoice.models import Bill, PaymentInvoice, DetailPaymentInvoice
@@ -196,14 +197,15 @@ class BenefitConsumptionService(BaseService):
 
 
 class CsvReconciliationService:
-    def __init__(self, user):
+    def __init__(self, user: InteractiveUser):
         self.user = user
 
     def download_reconciliation(self, payroll_id) -> BytesIO:
         payroll = self._resolve_payroll(payroll_id)
         bc_qs = self._get_benefit_consumption_qs(payroll)
         df = pd.DataFrame.from_records(bc_qs.values(*PayrollConfig.csv_reconciliation_field_mapping.keys()))
-        df[PayrollConfig.csv_reconciliation_paid_extra_field] = df.apply(lambda row: self._fill_paid_column(row), axis=1)
+        df[PayrollConfig.csv_reconciliation_paid_extra_field] = df.apply(lambda row: self._fill_paid_column(row),
+                                                                         axis=1)
         df.rename(columns=PayrollConfig.csv_reconciliation_field_mapping, inplace=True)
 
         in_memory_file = BytesIO()
@@ -212,8 +214,11 @@ class CsvReconciliationService:
         df.to_csv(in_memory_file, index=False)
         return in_memory_file
 
-    def upload_reconciliation(self, payroll_id, file):
+    def upload_reconciliation(self, payroll_id, file, upload):
         payroll = self._resolve_payroll(payroll_id)
+        upload.payroll = payroll
+        upload.status = upload.Status.IN_PROGRESS
+        upload.save(username=self.user.login_name)
         if not file:
             raise ValueError('csv_reconciliation.validation.file_required')
         df = pd.read_csv(file)
@@ -250,8 +255,9 @@ class CsvReconciliationService:
         if not bc.payrollbenefitconsumption_set.filter(payroll=payroll).exists():
             raise ValueError('csv_reconciliation.validation.benefit_consumption_not_in_payroll')
 
-        if row[PayrollConfig.csv_reconciliation_paid_extra_field] and row[PayrollConfig.csv_reconciliation_paid_extra_field] not in [
-            PayrollConfig.csv_reconciliation_paid_yes, PayrollConfig.csv_reconciliation_paid_no]:
+        if (row[PayrollConfig.csv_reconciliation_paid_extra_field]
+                and row[PayrollConfig.csv_reconciliation_paid_extra_field]
+                not in [PayrollConfig.csv_reconciliation_paid_yes, PayrollConfig.csv_reconciliation_paid_no]):
             raise ValueError('csv_reconciliation.validation.paid_column_invalid_value')
 
         if (row[PayrollConfig.csv_reconciliation_paid_extra_field] == PayrollConfig.csv_reconciliation_paid_yes
