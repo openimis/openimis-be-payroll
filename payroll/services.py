@@ -260,6 +260,13 @@ class CsvReconciliationService:
                 not in [PayrollConfig.csv_reconciliation_paid_yes, PayrollConfig.csv_reconciliation_paid_no]):
             raise ValueError('csv_reconciliation.validation.paid_column_invalid_value')
 
+        if not row[PayrollConfig.csv_reconciliation_receipt_column]:
+            raise ValueError('csv_reconciliation.validation.receipt_required')
+
+        if BenefitConsumption.objects.filter(receipt=row[PayrollConfig.csv_reconciliation_receipt_column],
+                                             is_deleted=False).exists():
+            raise ValueError('csv_reconciliation.validation.receipt_already_used')
+
         if (row[PayrollConfig.csv_reconciliation_paid_extra_field] == PayrollConfig.csv_reconciliation_paid_yes
                 and bc.status == BenefitConsumptionStatus.ACCEPTED):
             self._reconcile_bc(row, bc)
