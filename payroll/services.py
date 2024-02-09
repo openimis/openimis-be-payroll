@@ -16,10 +16,10 @@ from payroll.apps import PayrollConfig
 from payroll.models import (
     PaymentPoint,
     Payroll,
-    PayrollBill,
     PayrollBenefitConsumption,
     BenefitConsumption,
-    BenefitAttachment, BenefitConsumptionStatus
+    BenefitAttachment,
+    BenefitConsumptionStatus
 )
 from payroll.validation import PaymentPointValidation, PayrollValidation, BenefitConsumptionValidation
 from payroll.strategies import StrategyOfPaymentInterface

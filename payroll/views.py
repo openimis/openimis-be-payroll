@@ -56,6 +56,7 @@ def _resolve_send_callback_to_imis_args(request):
 
 class CSVReconciliationAPIView(views.APIView):
     permission_classes = [check_user_rights(PayrollConfig.gql_csv_reconciliation_create_perms, )]
+
     def get(self, request):
         try:
             payroll_id = request.GET.get('payroll_id')
