@@ -150,13 +150,13 @@ class CsvReconciliationUploadGQLType(DjangoObjectType):
         model = CsvReconciliationUpload
         interfaces = (graphene.relay.Node,)
 
-    filter_fields = {
-        "id": ["exact"],
-        "date_created": ["exact", "lt", "lte", "gt", "gte"],
-        "date_updated": ["exact", "lt", "lte", "gt", "gte"],
-        "status": ["exact", "iexact", "istartswith", "icontains"],
-        "is_deleted": ["exact"],
-        "version": ["exact"],
-        **prefix_filterset("payroll__", PayrollGQLType._meta.filter_fields),
-    }
-    connection_class = ExtendedConnection
+        filter_fields = {
+            "id": ["exact"],
+            "date_created": ["exact", "lt", "lte", "gt", "gte"],
+            "date_updated": ["exact", "lt", "lte", "gt", "gte"],
+            "status": ["exact", "iexact", "istartswith", "icontains"],
+            "is_deleted": ["exact"],
+            "version": ["exact"],
+            **prefix_filterset("payroll__", PayrollGQLType._meta.filter_fields),
+        }
+        connection_class = ExtendedConnection
