@@ -13,8 +13,8 @@ from payroll.apps import PayrollConfig
 from payroll.gql_mutations import CreatePaymentPointMutation, UpdatePaymentPointMutation, DeletePaymentPointMutation, \
     CreatePayrollMutation, DeletePayrollMutation, ClosePayrollMutation, RejectPayrollMutation
 from payroll.gql_queries import BenefitConsumptionGQLType, PaymentPointGQLType, PayrollGQLType, PaymentMethodGQLType, \
-    PaymentMethodListGQLType, BenefitAttachmentListGQLType
-from payroll.models import PaymentPoint, Payroll, BenefitConsumption, BenefitAttachment
+    PaymentMethodListGQLType, BenefitAttachmentListGQLType, CsvReconciliationUploadGQLType
+from payroll.models import PaymentPoint, Payroll, BenefitConsumption, BenefitAttachment, CsvReconciliationUpload
 from payroll.payments_registry import PaymentMethodStorage
 
 
@@ -74,6 +74,11 @@ class Query(graphene.ObjectType):
         applyDefaultValidityFilter=graphene.Boolean(),
         client_mutation_id=graphene.String(),
         payroll_uuid=graphene.UUID(required=True)
+    )
+
+    csv_reconciliation_upload = OrderedDjangoFilterConnectionField(
+        CsvReconciliationUploadGQLType,
+        orderBy=graphene.List(of_type=graphene.String),
     )
 
     def resolve_bill_by_payroll(self, info, **kwargs):
@@ -170,6 +175,13 @@ class Query(graphene.ObjectType):
         payment_methods = PaymentMethodStorage.get_all_available_payment_methods()
         gql_payment_methods = Query._build_payment_method_options(payment_methods)
         return PaymentMethodListGQLType(gql_payment_methods)
+
+    def resolve_csv_reconciliation_upload(self, info, **kwargs):
+        Query._check_permissions(info.context.user, PayrollConfig.gql_csv_reconciliation_search_perms)
+        filters = append_validity_filter(**kwargs)
+
+        query = CsvReconciliationUpload.objects.filter(*filters)
+        return gql_optimizer.query(query, info)
 
     @staticmethod
     def _build_payment_method_options(payment_methods):

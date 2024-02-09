@@ -1,17 +1,25 @@
 import logging
+import pandas as pd
+from io import BytesIO
 
+from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 
+from core import datetime
 from core.custom_filters import CustomFilterWizardStorage
+from core.models import InteractiveUser
 from core.services import BaseService
 from core.signals import register_service_signal
+from invoice.models import Bill, PaymentInvoice, DetailPaymentInvoice
+from invoice.services import PaymentInvoiceService
 from payroll.apps import PayrollConfig
 from payroll.models import (
     PaymentPoint,
     Payroll,
     PayrollBenefitConsumption,
     BenefitConsumption,
-    BenefitAttachment
+    BenefitAttachment,
+    BenefitConsumptionStatus
 )
 from payroll.payments_registry import PaymentMethodStorage
 from payroll.validation import PaymentPointValidation, PayrollValidation, BenefitConsumptionValidation
@@ -23,7 +31,6 @@ from social_protection.models import Beneficiary, BeneficiaryStatus
 from tasks_management.apps import TasksManagementConfig
 from tasks_management.models import Task
 from tasks_management.services import TaskService, _get_std_task_data_payload
-
 
 logger = logging.getLogger(__name__)
 
@@ -214,3 +221,120 @@ class BenefitConsumptionService(BaseService):
         for bill in bills_queryset:
             benefit_attachment = BenefitAttachment(bill_id=bill.id, benefit_id=benefit_id)
             benefit_attachment.save(username=self.user.username)
+
+
+class CsvReconciliationService:
+    def __init__(self, user: InteractiveUser):
+        self.user = user
+
+    def download_reconciliation(self, payroll_id) -> BytesIO:
+        payroll = self._resolve_payroll(payroll_id)
+        bc_qs = self._get_benefit_consumption_qs(payroll)
+        df = pd.DataFrame.from_records(bc_qs.values(*PayrollConfig.csv_reconciliation_field_mapping.keys()))
+        df[PayrollConfig.csv_reconciliation_paid_extra_field] = df.apply(lambda row: self._fill_paid_column(row),
+                                                                         axis=1)
+        df.rename(columns=PayrollConfig.csv_reconciliation_field_mapping, inplace=True)
+
+        in_memory_file = BytesIO()
+        # BytesIO is duck-typed as a file object, so it can be passed to df.to_csv
+        # noinspection PyTypeChecker
+        df.to_csv(in_memory_file, index=False)
+        return in_memory_file
+
+    def upload_reconciliation(self, payroll_id, file, upload):
+        payroll = self._resolve_payroll(payroll_id)
+        upload.payroll = payroll
+        upload.status = upload.Status.IN_PROGRESS
+        upload.save(username=self.user.login_name)
+        if not file:
+            raise ValueError('csv_reconciliation.validation.file_required')
+        df = pd.read_csv(file)
+        df.rename(columns={v: k for k, v in PayrollConfig.csv_reconciliation_field_mapping.items()}, inplace=True)
+
+        with transaction.atomic():
+            df.apply(lambda row: self._reconcile_row(payroll, row), axis=1)
+
+    def _get_benefit_consumption_qs(self, payroll):
+        qs = BenefitConsumption.objects.filter(payrollbenefitconsumption__payroll=payroll, is_deleted=False)
+        if not qs.exists():
+            raise ValueError('csv_reconciliation.validation.no_benefit_consumption_for_payroll')
+        return qs
+
+    def _fill_paid_column(self, row):
+        if (PayrollConfig.csv_reconciliation_status_column in row
+                and row[PayrollConfig.csv_reconciliation_status_column] == BenefitConsumptionStatus.RECONCILED):
+            return PayrollConfig.csv_reconciliation_paid_yes
+        else:
+            return None
+
+    def _resolve_payroll(self, payroll_id):
+        if not payroll_id:
+            raise ValueError('csv_reconciliation.validation.payroll_id_required')
+        payroll = Payroll.objects.filter(id=payroll_id, is_deleted=False).first()
+        if not payroll:
+            raise ValueError('csv_reconciliation.validation.payroll_not_found')
+        return payroll
+
+    def _reconcile_row(self, payroll, row):
+        bc = BenefitConsumption.objects.filter(code=row['code'], is_deleted=False).first()
+        if not bc:
+            raise ValueError('csv_reconciliation.validation.benefit_consumption_not_found')
+        if not bc.payrollbenefitconsumption_set.filter(payroll=payroll).exists():
+            raise ValueError('csv_reconciliation.validation.benefit_consumption_not_in_payroll')
+
+        if (row[PayrollConfig.csv_reconciliation_paid_extra_field]
+                and row[PayrollConfig.csv_reconciliation_paid_extra_field]
+                not in [PayrollConfig.csv_reconciliation_paid_yes, PayrollConfig.csv_reconciliation_paid_no]):
+            raise ValueError('csv_reconciliation.validation.paid_column_invalid_value')
+
+        if not row[PayrollConfig.csv_reconciliation_receipt_column]:
+            raise ValueError('csv_reconciliation.validation.receipt_required')
+
+        if BenefitConsumption.objects.filter(receipt=row[PayrollConfig.csv_reconciliation_receipt_column],
+                                             is_deleted=False).exists():
+            raise ValueError('csv_reconciliation.validation.receipt_already_used')
+
+        if (row[PayrollConfig.csv_reconciliation_paid_extra_field] == PayrollConfig.csv_reconciliation_paid_yes
+                and bc.status == BenefitConsumptionStatus.ACCEPTED):
+            self._reconcile_bc(row, bc)
+
+    def _reconcile_bc(self, row, bc):
+        bc.status = BenefitConsumptionStatus.RECONCILED
+        bc.receipt = row[PayrollConfig.csv_reconciliation_receipt_column]
+        bc.save(username=self.user.login_name)
+        bill = Bill.objects.filter(benefitattachment__benefit=bc, is_deleted=False).first()
+        if bill:
+            self._reconcile_bill(row, bill)
+
+    def _reconcile_bill(self, row, bill):
+        bill.status = Bill.Status.RECONCILIATED
+        bill.save(username=self.user.login_name)
+
+        current_date = datetime.date.today()
+        bill_payment = {
+            "code_tp": bill.code_tp,
+            "code_ext": bill.code_ext,
+            "code_receipt": bill.code,
+            "label": bill.terms,
+            'reconciliation_status': PaymentInvoice.ReconciliationStatus.RECONCILIATED,
+            "fees": 0.0,
+            "amount_received": bill.amount_total,
+            "date_payment": current_date,
+            'payment_origin': "online payment",
+            'payer_ref': 'payment reference',
+            'payer_name': 'payer name',
+            "json_ext": {}
+        }
+
+        bill_payment_details = {
+            'subject_type': ContentType.objects.get_for_model(bill),
+            'subject': bill,
+            'status': DetailPaymentInvoice.DetailPaymentStatus.ACCEPTED,
+            'fees': 0.0,
+            'amount': bill.amount_total,
+            'reconcilation_id': row[PayrollConfig.csv_reconciliation_receipt_column],
+            'reconcilation_date': current_date,
+        }
+        bill_payment_details = DetailPaymentInvoice(**bill_payment_details)
+        payment_service = PaymentInvoiceService(self.user)
+        payment_service.create_with_detail(bill_payment, bill_payment_details)

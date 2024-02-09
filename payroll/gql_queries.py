@@ -6,7 +6,7 @@ from core.gql_queries import UserGQLType
 from invoice.gql.gql_types.bill_types import BillGQLType
 from location.gql_queries import LocationGQLType
 from individual.gql_queries import IndividualGQLType
-from payroll.models import PaymentPoint, Payroll, BenefitConsumption, BenefitAttachment
+from payroll.models import PaymentPoint, Payroll, BenefitConsumption, BenefitAttachment, CsvReconciliationUpload
 from contribution_plan.gql import PaymentPlanGQLType
 from payment_cycle.gql_queries import PaymentCycleGQLType
 
@@ -110,8 +110,8 @@ class PayrollGQLType(DjangoObjectType):
 
     def resolve_benefit_consumption(self, info):
         return BenefitConsumption.objects.filter(payrollbenefitconsumption__payroll__id=self.id,
-                                   is_deleted=False,
-                                   payrollbenefitconsumption__is_deleted=False)
+                                                 is_deleted=False,
+                                                 payrollbenefitconsumption__is_deleted=False)
 
 
 class PaymentMethodGQLType(graphene.ObjectType):
@@ -141,3 +141,22 @@ class BenefitAttachmentListGQLType(DjangoObjectType):
             "version": ["exact"],
         }
         connection_class = ExtendedConnection
+
+
+class CsvReconciliationUploadGQLType(DjangoObjectType):
+    uuid = graphene.String(source='uuid')
+
+    class Meta:
+        model = CsvReconciliationUpload
+        interfaces = (graphene.relay.Node,)
+
+    filter_fields = {
+        "id": ["exact"],
+        "date_created": ["exact", "lt", "lte", "gt", "gte"],
+        "date_updated": ["exact", "lt", "lte", "gt", "gte"],
+        "status": ["exact", "iexact", "istartswith", "icontains"],
+        "is_deleted": ["exact"],
+        "version": ["exact"],
+        **prefix_filterset("payroll__", PayrollGQLType._meta.filter_fields),
+    }
+    connection_class = ExtendedConnection
