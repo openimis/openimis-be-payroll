@@ -30,7 +30,7 @@ class BenefitConsumptionStatus(models.TextChoices):
 class PaymentPoint(HistoryModel):
     name = models.CharField(max_length=255)
     location = models.ForeignKey(Location, models.DO_NOTHING)
-    ppm = models.ForeignKey(User, models.DO_NOTHING,  blank=True, null=True)
+    ppm = models.ForeignKey(User, models.DO_NOTHING, blank=True, null=True)
 
 
 class Payroll(HistoryBusinessModel):
@@ -84,6 +84,19 @@ class PayrollBenefitConsumption(HistoryModel):
     # 1:n it is ensured by the service
     payroll = models.ForeignKey(Payroll, on_delete=models.DO_NOTHING)
     benefit = models.ForeignKey(BenefitConsumption, on_delete=models.DO_NOTHING)
+
+
+class CsvReconciliationUpload(HistoryModel):
+    class Status(models.TextChoices):
+        TRIGGERED = 'TRIGGERED', _('Triggered')
+        IN_PROGRESS = 'IN_PROGRESS', _('In progress')
+        SUCCESS = 'SUCCESS', _('Success')
+        WAITING_FOR_VERIFICATION = 'WAITING_FOR_VERIFICATION', _('WAITING_FOR_VERIFICATION')
+        FAIL = 'FAIL', _('Fail')
+
+    payroll = models.ForeignKey(Payroll, models.DO_NOTHING, null=True, blank=True)
+    status = models.CharField(max_length=255, choices=Status.choices, default=Status.TRIGGERED)
+    error = models.JSONField(blank=True, default=dict)
 
 
 class PayrollMutation(UUIDModel, ObjectMutation):
