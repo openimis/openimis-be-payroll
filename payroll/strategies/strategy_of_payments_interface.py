@@ -70,7 +70,7 @@ class StrategyOfPaymentInterface(object,  metaclass=abc.ABCMeta):
         from payroll.models import (
             BenefitAttachment,
             BenefitConsumption,
-            PayrollBenefitConsumption
+            PayrollBenefitConsumption,
         )
         from invoice.models import (
             Bill,

@@ -89,14 +89,16 @@ class PayrollService(BaseService):
     @check_authentication
     @register_service_signal('payroll_service.delete')
     def delete(self, obj_data):
-        try:
-            with transaction.atomic():
-                self.validation_class.validate_delete(self.user, **obj_data)
-                obj_ = self.OBJECT_TYPE.objects.filter(id=obj_data['id']).first()
-                StrategyOfPaymentInterface.remove_benefits_from_rejected_payroll(payroll=obj_)
-                return self.delete_instance(obj_)
-        except Exception as exc:
-            return output_exception(model_name=self.OBJECT_TYPE.__name__, method="delete", exception=exc)
+        payroll_to_delete = Payroll.objects.get(id=obj_data['id'])
+        data = {'id': payroll_to_delete.id}
+        TaskService(self.user).create({
+            'source': 'payroll_delete',
+            'entity': payroll_to_delete,
+            'status': Task.Status.RECEIVED,
+            'executor_action_event': TasksManagementConfig.default_executor_event,
+            'business_event': PayrollConfig.payroll_delete_event,
+            'data': _get_std_task_data_payload(data)
+        })
 
     @check_authentication
     @register_service_signal('payroll_service.attach_benefit_to_payroll')
