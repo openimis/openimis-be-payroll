@@ -15,6 +15,7 @@ class StrategyOfPaymentInterface(object,  metaclass=abc.ABCMeta):
 
     @classmethod
     def reject_approved_payroll(cls, payroll, user):
+        from django.contrib.contenttypes.models import ContentType
         from core.services.utils.serviceUtils import model_representation
         from payroll.models import (
             BenefitConsumption,
@@ -23,7 +24,8 @@ class StrategyOfPaymentInterface(object,  metaclass=abc.ABCMeta):
         )
         from invoice.models import (
             DetailPaymentInvoice,
-            PaymentInvoice
+            PaymentInvoice,
+            Bill
         )
         from payroll.services import PayrollService
 
@@ -32,7 +34,16 @@ class StrategyOfPaymentInterface(object,  metaclass=abc.ABCMeta):
             status=BenefitConsumptionStatus.RECONCILED,
             is_deleted=False
         )
-        related_bills = benefit_data.values_list('id', 'benefitattachment__bill')
+        benefit_data_related = list(benefit_data.values_list('id', 'benefitattachment__bill'))
+        benefits, related_bills = zip(*benefit_data_related)
+        bill_content_type = ContentType.objects.get_for_model(Bill)
+        detail_payment_invoices = DetailPaymentInvoice.objects.filter(
+            subject_type=bill_content_type,
+            subject_id__in=related_bills
+        )
+        payment_invoice_ids = list(detail_payment_invoices.values_list('payment_id', flat=True))
+        detail_payment_invoices.delete()
+        PaymentInvoice.objects.filter(id__in=payment_invoice_ids).delete()
 
         for benefit in benefit_data:
             benefit.receipt = None

@@ -10,7 +10,9 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
+        ('payment_cycle', '0003_alter_historicalpaymentcycle_date_created_and_more'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+        ('contribution_plan', '0013_alter_contributionplan_date_created_and_more'),
         ('payroll', '0013_merge_20240207_1633'),
     ]
 
