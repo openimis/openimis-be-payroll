@@ -64,7 +64,7 @@ class BenefitConsumption(HistoryBusinessModel):
     photo = models.TextField(blank=True, null=True)
     code = models.CharField(max_length=255, blank=False, null=False)
     date_due = DateField(db_column='DateDue', null=True)
-    receipt = models.CharField(db_column='Receipt', max_length=255, null=True)
+    receipt = models.CharField(db_column='Receipt', max_length=255, null=True, blank=True)
     amount = models.DecimalField(db_column='Amount', max_digits=18, decimal_places=2, null=True)
     type = models.CharField(db_column='Type', max_length=255, null=True)
     status = models.CharField(
