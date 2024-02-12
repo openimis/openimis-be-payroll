@@ -17,6 +17,7 @@ DEFAULT_CONFIG = {
     "gql_csv_reconciliation_create_perms": ["206002"],
     "payroll_accept_event": "payroll.accept_payroll",
     "payroll_reconciliation_event": "payroll.payroll_reconciliation",
+    "payroll_reject_event": "payroll.payroll_reject",
     "csv_reconciliation_field_mapping": {
         'payrollbenefitconsumption__payroll__name': 'Payroll Name',
         'payrollbenefitconsumption__payroll__status': 'Payroll Status',
@@ -52,6 +53,7 @@ class PayrollConfig(AppConfig):
     gql_csv_reconciliation_create_perms = None
     payroll_accept_event = None
     payroll_reconciliation_event = None
+    payroll_reject_event = None
     csv_reconciliation_field_mapping = None
     csv_reconciliation_status_column = None
     csv_reconciliation_paid_extra_field = None
@@ -83,14 +85,10 @@ class PayrollConfig(AppConfig):
         )
 
         from payroll.strategies import (
-            StrategyOnlinePayment,
-            StrategyMobilePayment,
             StrategyOfflinePayment
         )
         PaymentsMethodRegistryPoint.register_payment_method(
             payment_method_class_list=[
-                StrategyOnlinePayment(),
-                StrategyMobilePayment(),
                 StrategyOfflinePayment()
             ]
         )
