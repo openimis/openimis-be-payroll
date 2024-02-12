@@ -8,6 +8,7 @@ from tasks_management.models import Task
 from payroll.apps import PayrollConfig
 from payroll.models import Payroll
 from payroll.payments_registry import PaymentMethodStorage
+from payroll.services import PayrollService
 
 
 logger = logging.getLogger(__name__)
@@ -64,7 +65,7 @@ def bind_service_signals():
         def reject_approved_payroll(payroll, user):
             strategy = PaymentMethodStorage.get_chosen_payment_method(payroll.payment_method)
             if strategy:
-                strategy.reject_approved_payroll(payroll, user)
+                strategy.remove_benefits_from_rejected_payrol(payroll)
         try:
             result = kwargs.get('result', None)
             task = result['data']['task']
@@ -84,6 +85,7 @@ def bind_service_signals():
             strategy = PaymentMethodStorage.get_chosen_payment_method(payroll.payment_method)
             if strategy:
                 strategy.remove_benefits_from_rejected_payroll(payroll=payroll)
+                PayrollService(user).delete_instance(payroll)
         try:
             result = kwargs.get('result', None)
             task = result['data']['task']
