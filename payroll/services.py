@@ -66,17 +66,21 @@ class PayrollService(BaseService):
         try:
             with transaction.atomic():
                 obj_data = self._adjust_create_payload(obj_data)
+                from_failed_invoices_payroll_id = obj_data.pop("from_failed_invoices_payroll_id", None)
                 payment_plan = self._get_payment_plan(obj_data)
                 date_valid_from, date_valid_to = self._get_dates_parameter(obj_data)
-                beneficiaries_queryset = self._select_beneficiary_based_on_criteria(obj_data, payment_plan)
                 payroll, dict_representation = self._save_payroll(obj_data)
-                self._generate_benefits(
-                    payment_plan,
-                    beneficiaries_queryset,
-                    date_valid_from,
-                    date_valid_to,
-                    payroll
-                )
+                if not bool(from_failed_invoices_payroll_id):
+                    beneficiaries_queryset = self._select_beneficiary_based_on_criteria(obj_data, payment_plan)
+                    self._generate_benefits(
+                        payment_plan,
+                        beneficiaries_queryset,
+                        date_valid_from,
+                        date_valid_to,
+                        payroll
+                    )
+                else:
+                    self._move_benefit_consumptions(payroll, from_failed_invoices_payroll_id)
                 self.create_accept_payroll_task(payroll.id, obj_data)
                 return dict_representation
         except Exception as exc:
@@ -192,6 +196,14 @@ class PayrollService(BaseService):
             beneficiaries_queryset=beneficiaries_queryset,
             payroll=payroll
         )
+
+    @transaction.atomic
+    def _move_benefit_consumptions(self, payroll, from_payroll_id):
+        payroll_benefits = PayrollBenefitConsumption.objects.filter(payroll_id=from_payroll_id,
+                                                                    benefit__status=BenefitConsumptionStatus.ACCEPTED)
+        payroll_benefits.update(payroll=payroll)
+        benefits = BenefitConsumption.objects.filter(payrollbenefitconsumption__payroll=payroll)
+        benefits.update(status=BenefitConsumptionStatus.APPROVE_FOR_PAYMENT)
 
 
 class BenefitConsumptionService(BaseService):
