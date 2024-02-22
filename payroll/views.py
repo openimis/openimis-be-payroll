@@ -76,6 +76,9 @@ class CSVReconciliationAPIView(views.APIView):
                 path = PayrollConfig.get_payroll_payment_file_path(payroll_id, file_name)
                 file_handler = DefaultStorageFileHandler(path)
                 return file_handler.get_file_response_csv(file_name)
+        except ValueError as exc:
+            logger.error("Error while generating CSV reconciliation", exc_info=exc)
+            return Response({'success': False, 'error': str(exc)}, status=400)
         except FileNotFoundError as exc:
             logger.error("File not found", exc_info=exc)
             return Response({'success': False, 'error': str(exc)}, status=404)
