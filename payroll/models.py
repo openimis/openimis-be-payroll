@@ -97,6 +97,7 @@ class CsvReconciliationUpload(HistoryModel):
     payroll = models.ForeignKey(Payroll, models.DO_NOTHING, null=True, blank=True)
     status = models.CharField(max_length=255, choices=Status.choices, default=Status.TRIGGERED)
     error = models.JSONField(blank=True, default=dict)
+    file_name = models.CharField(max_length=255, null=True, blank=True)
 
 
 class PayrollMutation(UUIDModel, ObjectMutation):

@@ -94,3 +94,9 @@ class PayrollConfig(AppConfig):
                 StrategyOfflinePayment()
             ]
         )
+
+    @staticmethod
+    def get_payroll_payment_file_path(payroll_id, file_name=None):
+        if file_name:
+            return f"csv_reconciliation/payroll_{payroll_id}/{file_name}"
+        return f"csv_reconciliation/payroll_{payroll_id}"
