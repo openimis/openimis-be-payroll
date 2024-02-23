@@ -3,9 +3,11 @@ from graphene_django import DjangoObjectType
 
 from core import prefix_filterset, ExtendedConnection
 from core.gql_queries import UserGQLType
+from core.utils import DefaultStorageFileHandler
 from invoice.gql.gql_types.bill_types import BillGQLType
 from location.gql_queries import LocationGQLType
 from individual.gql_queries import IndividualGQLType
+from payroll.apps import PayrollConfig
 from payroll.models import PaymentPoint, Payroll, BenefitConsumption, BenefitAttachment, CsvReconciliationUpload
 from contribution_plan.gql import PaymentPlanGQLType
 from payment_cycle.gql_queries import PaymentCycleGQLType
@@ -152,6 +154,7 @@ class CsvReconciliationUploadGQLType(DjangoObjectType):
 
         filter_fields = {
             "id": ["exact"],
+            "file_name": ["exact", "iexact", "istartswith", "icontains"],
             "date_created": ["exact", "lt", "lte", "gt", "gte"],
             "date_updated": ["exact", "lt", "lte", "gt", "gte"],
             "status": ["exact", "iexact", "istartswith", "icontains"],
