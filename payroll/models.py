@@ -91,6 +91,7 @@ class CsvReconciliationUpload(HistoryModel):
         TRIGGERED = 'TRIGGERED', _('Triggered')
         IN_PROGRESS = 'IN_PROGRESS', _('In progress')
         SUCCESS = 'SUCCESS', _('Success')
+        PARTIAL_SUCCESS = 'PARTIAL_SUCCESS', _('Partial Success')
         WAITING_FOR_VERIFICATION = 'WAITING_FOR_VERIFICATION', _('WAITING_FOR_VERIFICATION')
         FAIL = 'FAIL', _('Fail')
 
