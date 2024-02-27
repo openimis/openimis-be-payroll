@@ -4,6 +4,7 @@ from io import BytesIO
 
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
+from django.utils.translation import gettext as _
 
 from core import datetime
 from core.custom_filters import CustomFilterWizardStorage
@@ -261,18 +262,39 @@ class CsvReconciliationService:
         upload.status = upload.Status.IN_PROGRESS
         upload.save(username=self.user.login_name)
         if not file:
-            raise ValueError('csv_reconciliation.validation.file_required')
+            raise ValueError(_('csv_reconciliation.validation.file_required'))
         df = pd.read_csv(file)
+        self._validate_dataframe(df)
         df.rename(columns={v: k for k, v in PayrollConfig.csv_reconciliation_field_mapping.items()}, inplace=True)
 
-        with transaction.atomic():
-            df.apply(lambda row: self._reconcile_row(payroll, row), axis=1)
+        df[PayrollConfig.csv_reconciliation_errors_column] = df.apply(lambda row: self._reconcile_row(payroll, row),
+                                                                      axis=1)
+
+        error_df = df[df[PayrollConfig.csv_reconciliation_errors_column].apply(lambda x: bool(x))]
+        if not error_df.empty:
+            in_memory_file = BytesIO()
+            df.rename(columns={k: v for k, v in PayrollConfig.csv_reconciliation_field_mapping.items()}, inplace=True)
+            df.to_csv(in_memory_file, index=False)
+            return in_memory_file, error_df.set_index(PayrollConfig.csv_reconciliation_code_column)\
+                                   [PayrollConfig.csv_reconciliation_errors_column].to_dict()
+        return file, None
 
     def _get_benefit_consumption_qs(self, payroll):
         qs = BenefitConsumption.objects.filter(payrollbenefitconsumption__payroll=payroll, is_deleted=False)
         if not qs.exists():
             raise ValueError('csv_reconciliation.validation.no_benefit_consumption_for_payroll')
         return qs
+
+    def _validate_dataframe(self, df):
+        if df is None:
+            raise ValueError(_("Unknown error while loading import file"))
+        if df.empty:
+            raise ValueError(_("Import file is empty"))
+        if PayrollConfig.csv_reconciliation_errors_column in df.columns:
+            raise ValueError(_("Column errors in csv."))
+        if 'Status' in df.columns:
+            if (df[PayrollConfig.csv_reconciliation_status_column] == BenefitConsumptionStatus.RECONCILED).all():
+                raise ValueError(_("All of the Benefit Consumptions have been already reconciled."))
 
     def _fill_paid_column(self, row):
         if (PayrollConfig.csv_reconciliation_status_column in row
@@ -290,27 +312,30 @@ class CsvReconciliationService:
         return payroll
 
     def _reconcile_row(self, payroll, row):
+        errors = []
         bc = BenefitConsumption.objects.filter(code=row['code'], is_deleted=False).first()
         if not bc:
-            raise ValueError('csv_reconciliation.validation.benefit_consumption_not_found')
+            errors.append(_('benefit_consumption_not_found'))
         if not bc.payrollbenefitconsumption_set.filter(payroll=payroll).exists():
-            raise ValueError('csv_reconciliation.validation.benefit_consumption_not_in_payroll')
+            errors.append(_('benefit_consumption_not_in_payroll'))
 
         if (row[PayrollConfig.csv_reconciliation_paid_extra_field]
                 and row[PayrollConfig.csv_reconciliation_paid_extra_field]
                 not in [PayrollConfig.csv_reconciliation_paid_yes, PayrollConfig.csv_reconciliation_paid_no]):
-            raise ValueError('csv_reconciliation.validation.paid_column_invalid_value')
+            errors.append(_('paid_column_invalid_value'))
 
         if not row[PayrollConfig.csv_reconciliation_receipt_column]:
-            raise ValueError('csv_reconciliation.validation.receipt_required')
+            errors.append(_('receipt_required'))
 
-        if BenefitConsumption.objects.filter(receipt=row[PayrollConfig.csv_reconciliation_receipt_column],
-                                             is_deleted=False).exists():
-            raise ValueError('csv_reconciliation.validation.receipt_already_used')
+        if bc and bc.status != row['status']:
+            errors.append(_('status_not_matching'))
 
-        if (row[PayrollConfig.csv_reconciliation_paid_extra_field] == PayrollConfig.csv_reconciliation_paid_yes
-                and bc.status == BenefitConsumptionStatus.ACCEPTED):
+        if (not errors
+                and (row[PayrollConfig.csv_reconciliation_paid_extra_field] == PayrollConfig.csv_reconciliation_paid_yes
+                     and bc.status == BenefitConsumptionStatus.ACCEPTED)):
             self._reconcile_bc(row, bc)
+
+        return errors if errors else None
 
     def _reconcile_bc(self, row, bc):
         bc.status = BenefitConsumptionStatus.RECONCILED
