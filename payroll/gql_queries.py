@@ -6,9 +6,11 @@ from core.gql_queries import UserGQLType
 from invoice.gql.gql_types.bill_types import BillGQLType
 from location.gql_queries import LocationGQLType
 from individual.gql_queries import IndividualGQLType
-from payroll.models import PaymentPoint, Payroll, BenefitConsumption, BenefitAttachment, CsvReconciliationUpload
+from payroll.models import PaymentPoint, Payroll, BenefitConsumption, \
+    PayrollBenefitConsumption, BenefitAttachment, CsvReconciliationUpload
 from contribution_plan.gql import PaymentPlanGQLType
 from payment_cycle.gql_queries import PaymentCycleGQLType
+from social_protection.models import BenefitPlan
 
 
 class PaymentPointGQLType(DjangoObjectType):
@@ -86,6 +88,7 @@ class BenefitConsumptionGQLType(DjangoObjectType):
 class PayrollGQLType(DjangoObjectType):
     uuid = graphene.String(source='uuid')
     benefit_consumption = graphene.List(BenefitConsumptionGQLType)
+    benefit_plan_name_code = graphene.String()
 
     class Meta:
         model = Payroll
@@ -112,6 +115,10 @@ class PayrollGQLType(DjangoObjectType):
         return BenefitConsumption.objects.filter(payrollbenefitconsumption__payroll__id=self.id,
                                                  is_deleted=False,
                                                  payrollbenefitconsumption__is_deleted=False)
+
+    def resolve_benefit_plan_name_code(self, info):
+        benefit_plan = BenefitPlan.objects.get(id=self.payment_plan.benefit_plan.id, is_deleted=False)
+        return f"{benefit_plan.code} - {benefit_plan.name}"
 
 
 class PaymentMethodGQLType(graphene.ObjectType):
@@ -158,5 +165,22 @@ class CsvReconciliationUploadGQLType(DjangoObjectType):
             "is_deleted": ["exact"],
             "version": ["exact"],
             **prefix_filterset("payroll__", PayrollGQLType._meta.filter_fields),
+        }
+        connection_class = ExtendedConnection
+
+
+class PayrollBenefitConsumptionGQLType(DjangoObjectType):
+
+    class Meta:
+        model = PayrollBenefitConsumption
+        interfaces = (graphene.relay.Node,)
+        filter_fields = {
+            "id": ["exact"],
+            **prefix_filterset("payroll__", PayrollGQLType._meta.filter_fields),
+            **prefix_filterset("benefit__", BenefitConsumptionGQLType._meta.filter_fields),
+            "date_created": ["exact", "lt", "lte", "gt", "gte"],
+            "date_updated": ["exact", "lt", "lte", "gt", "gte"],
+            "is_deleted": ["exact"],
+            "version": ["exact"],
         }
         connection_class = ExtendedConnection
