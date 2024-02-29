@@ -66,6 +66,8 @@ class BenefitConsumptionGQLType(DjangoObjectType):
             "code": ["iexact", "istartswith", "icontains"],
             "status": ["exact", "startswith", "contains"],
             "receipt": ["exact", "startswith", "contains"],
+            "type": ["exact", "startswith", "contains"],
+            "amount": ["exact", "lt", "lte", "gt", "gte"],
             "date_due": ["exact", "lt", "lte", "gt", "gte"],
             **prefix_filterset("individual__", IndividualGQLType._meta.filter_fields),
 
