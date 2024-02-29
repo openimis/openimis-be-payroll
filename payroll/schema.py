@@ -20,6 +20,7 @@ from payroll.models import PaymentPoint, Payroll, \
     BenefitConsumption, BenefitAttachment, \
     CsvReconciliationUpload, PayrollBenefitConsumption
 from payroll.payments_registry import PaymentMethodStorage
+from social_protection.models import BenefitPlan
 
 
 class Query(graphene.ObjectType):
@@ -91,6 +92,7 @@ class Query(graphene.ObjectType):
         dateValidFrom__Gte=graphene.DateTime(),
         dateValidTo__Lte=graphene.DateTime(),
         client_mutation_id=graphene.String(),
+        benefitPlanName=graphene.String(),
     )
 
     def resolve_bill_by_payroll(self, info, **kwargs):
@@ -175,6 +177,11 @@ class Query(graphene.ObjectType):
         client_mutation_id = kwargs.get("client_mutation_id")
         if client_mutation_id:
             filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
+
+        benefit_plan_name = kwargs.get("benefitPlanName")
+        if benefit_plan_name:
+            benefit_plan_ids = list(BenefitPlan.objects.filter(name__icontains=benefit_plan_name).values_list('id', flat=True))
+            filters.append(Q(payroll__payment_plan__benefit_plan_id__in=benefit_plan_ids))
 
         query = PayrollBenefitConsumption.objects.filter(*filters)
         return gql_optimizer.query(query, info)
