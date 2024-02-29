@@ -1,4 +1,5 @@
 import graphene
+from django.db.models import Sum, Q
 from graphene_django import DjangoObjectType
 
 from core import prefix_filterset, ExtendedConnection
@@ -186,3 +187,8 @@ class PayrollBenefitConsumptionGQLType(DjangoObjectType):
             "version": ["exact"],
         }
         connection_class = ExtendedConnection
+
+
+class BenefitsSummaryGQLType(graphene.ObjectType):
+    total_amount_received = graphene.String()
+    total_amount_due = graphene.String()

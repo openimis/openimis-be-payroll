@@ -2,7 +2,7 @@ import graphene
 import graphene_django_optimizer as gql_optimizer
 from gettext import gettext as _
 from django.contrib.auth.models import AnonymousUser
-from django.db.models import Q
+from django.db.models import Q, Sum
 
 from core.schema import OrderedDjangoFilterConnectionField
 from core.utils import append_validity_filter
@@ -15,10 +15,10 @@ from payroll.gql_mutations import CreatePaymentPointMutation, UpdatePaymentPoint
 from payroll.gql_queries import BenefitConsumptionGQLType, PaymentPointGQLType, \
     PayrollGQLType, PaymentMethodGQLType, \
     PaymentMethodListGQLType, BenefitAttachmentListGQLType, \
-    CsvReconciliationUploadGQLType, PayrollBenefitConsumptionGQLType
+    CsvReconciliationUploadGQLType, PayrollBenefitConsumptionGQLType, BenefitsSummaryGQLType
 from payroll.models import PaymentPoint, Payroll, \
     BenefitConsumption, BenefitAttachment, \
-    CsvReconciliationUpload, PayrollBenefitConsumption
+    CsvReconciliationUpload, PayrollBenefitConsumption, BenefitConsumptionStatus
 from payroll.payments_registry import PaymentMethodStorage
 from social_protection.models import BenefitPlan
 
@@ -93,6 +93,12 @@ class Query(graphene.ObjectType):
         dateValidTo__Lte=graphene.DateTime(),
         client_mutation_id=graphene.String(),
         benefitPlanName=graphene.String(),
+    )
+
+    benefits_summary = graphene.Field(
+        BenefitsSummaryGQLType,
+        individualId=graphene.String(),
+        payrollId=graphene.String()
     )
 
     def resolve_bill_by_payroll(self, info, **kwargs):
@@ -212,6 +218,37 @@ class Query(graphene.ObjectType):
 
         query = CsvReconciliationUpload.objects.filter(*filters)
         return gql_optimizer.query(query, info)
+
+    def resolve_benefits_summary(self, info, **kwargs):
+        Query._check_permissions(info.context.user,
+                                 PayrollConfig.gql_payroll_search_perms)
+        filters = append_validity_filter(**kwargs)
+        individual_id = kwargs.get("individualId", None)
+        payroll_id = kwargs.get("payrollId", None)
+
+        if individual_id:
+            filters.append(Q(individual__id=individual_id))
+
+        if payroll_id:
+            filters.append(Q(payrollbenefitconsumption__payroll_id=payroll_id))
+
+        amount_received = BenefitConsumption.objects.filter(
+            *filters,
+            is_deleted=False,
+            payrollbenefitconsumption__is_deleted=False,
+            status=BenefitConsumptionStatus.RECONCILED
+        ).aggregate(total_received=Sum('amount'))['total_received'] or 0
+
+        amount_due = BenefitConsumption.objects.filter(
+            *filters,
+            is_deleted=False,
+            payrollbenefitconsumption__is_deleted=False
+        ).exclude(status=BenefitConsumptionStatus.RECONCILED).aggregate(total_due=Sum('amount'))['total_due'] or 0
+
+        return BenefitsSummaryGQLType(
+            total_amount_received=amount_received,
+            total_amount_due=amount_due,
+        )
 
     @staticmethod
     def _build_payment_method_options(payment_methods):
