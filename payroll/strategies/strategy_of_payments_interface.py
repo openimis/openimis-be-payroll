@@ -35,15 +35,16 @@ class StrategyOfPaymentInterface(object,  metaclass=abc.ABCMeta):
             is_deleted=False
         )
         benefit_data_related = list(benefit_data.values_list('id', 'benefitattachment__bill'))
-        benefits, related_bills = zip(*benefit_data_related)
-        bill_content_type = ContentType.objects.get_for_model(Bill)
-        detail_payment_invoices = DetailPaymentInvoice.objects.filter(
-            subject_type=bill_content_type,
-            subject_id__in=related_bills
-        )
-        payment_invoice_ids = list(detail_payment_invoices.values_list('payment_id', flat=True))
-        detail_payment_invoices.delete()
-        PaymentInvoice.objects.filter(id__in=payment_invoice_ids).delete()
+        if len(benefit_data_related) > 0:
+            benefits, related_bills = zip(*benefit_data_related)
+            bill_content_type = ContentType.objects.get_for_model(Bill)
+            detail_payment_invoices = DetailPaymentInvoice.objects.filter(
+                subject_type=bill_content_type,
+                subject_id__in=related_bills
+            )
+            payment_invoice_ids = list(detail_payment_invoices.values_list('payment_id', flat=True))
+            detail_payment_invoices.delete()
+            PaymentInvoice.objects.filter(id__in=payment_invoice_ids).delete()
 
         for benefit in benefit_data:
             benefit.receipt = None
@@ -82,23 +83,24 @@ class StrategyOfPaymentInterface(object,  metaclass=abc.ABCMeta):
             is_deleted=False
         ).values_list('id', 'benefitattachment__bill')
 
-        benefits, related_bills = zip(*benefit_data)
+        if len(benefit_data) > 0:
+            benefits, related_bills = zip(*benefit_data)
 
-        BenefitAttachment.objects.filter(
-            benefit_id__in=benefits
-        ).delete()
+            BenefitAttachment.objects.filter(
+                benefit_id__in=benefits
+            ).delete()
 
-        BillItem.objects.filter(
-            bill__id__in=related_bills
-        ).delete()
+            BillItem.objects.filter(
+                bill__id__in=related_bills
+            ).delete()
 
-        Bill.objects.filter(
-            id__in=related_bills
-        ).delete()
+            Bill.objects.filter(
+                id__in=related_bills
+            ).delete()
 
-        PayrollBenefitConsumption.objects.filter(payroll=payroll).delete()
+            PayrollBenefitConsumption.objects.filter(payroll=payroll).delete()
 
-        BenefitConsumption.objects.filter(
-            id__in=benefits,
-            is_deleted=False
-        ).delete()
+            BenefitConsumption.objects.filter(
+                id__in=benefits,
+                is_deleted=False
+            ).delete()

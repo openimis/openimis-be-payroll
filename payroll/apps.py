@@ -33,6 +33,8 @@ DEFAULT_CONFIG = {
     "csv_reconciliation_status_column": "status",
     "csv_reconciliation_paid_extra_field": "Paid",
     "csv_reconciliation_receipt_column": "receipt",
+    "csv_reconciliation_errors_column": "errors",
+    "csv_reconciliation_code_column": "code",
     "csv_reconciliation_paid_yes": "Yes",
     "csv_reconciliation_paid_no": "No",
     "payroll_delete_event": "payroll.payroll_delete",
@@ -59,6 +61,8 @@ class PayrollConfig(AppConfig):
     csv_reconciliation_status_column = None
     csv_reconciliation_paid_extra_field = None
     csv_reconciliation_receipt_column = None
+    csv_reconciliation_errors_column = None
+    csv_reconciliation_code_column = None
     csv_reconciliation_paid_yes = None
     csv_reconciliation_paid_no = None
     payroll_delete_event = None
@@ -94,3 +98,9 @@ class PayrollConfig(AppConfig):
                 StrategyOfflinePayment()
             ]
         )
+
+    @staticmethod
+    def get_payroll_payment_file_path(payroll_id, file_name=None):
+        if file_name:
+            return f"csv_reconciliation/payroll_{payroll_id}/{file_name}"
+        return f"csv_reconciliation/payroll_{payroll_id}"

@@ -65,7 +65,7 @@ def bind_service_signals():
         def reject_approved_payroll(payroll, user):
             strategy = PaymentMethodStorage.get_chosen_payment_method(payroll.payment_method)
             if strategy:
-                strategy.remove_benefits_from_rejected_payrol(payroll)
+                strategy.reject_approved_payroll(payroll, user)
         try:
             result = kwargs.get('result', None)
             task = result['data']['task']
