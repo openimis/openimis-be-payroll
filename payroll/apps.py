@@ -30,7 +30,7 @@ DEFAULT_CONFIG = {
         'type': 'Type',
         'receipt': 'Receipt',
     },
-    "csv_reconciliation_status_column": "status",
+    "csv_reconciliation_status_column": "Status",
     "csv_reconciliation_paid_extra_field": "Paid",
     "csv_reconciliation_receipt_column": "receipt",
     "csv_reconciliation_errors_column": "errors",
