@@ -346,10 +346,11 @@ class CsvReconciliationService:
             self._reconcile_bill(row, bill)
 
     def _reconcile_bill(self, row, bill):
+        current_date = datetime.date.today()
         bill.status = Bill.Status.RECONCILIATED
+        bill.date_payed = current_date
         bill.save(username=self.user.login_name)
 
-        current_date = datetime.date.today()
         bill_payment = {
             "code_tp": bill.code_tp,
             "code_ext": bill.code_ext,
