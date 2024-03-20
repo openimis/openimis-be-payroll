@@ -13,6 +13,7 @@ from core.services import BaseService
 from core.signals import register_service_signal
 from invoice.models import Bill, PaymentInvoice, DetailPaymentInvoice
 from invoice.services import PaymentInvoiceService
+from payment_cycle.models import PaymentCycle
 from payroll.apps import PayrollConfig
 from payroll.models import (
     PaymentPoint,
@@ -69,6 +70,7 @@ class PayrollService(BaseService):
                 obj_data = self._adjust_create_payload(obj_data)
                 from_failed_invoices_payroll_id = obj_data.pop("from_failed_invoices_payroll_id", None)
                 payment_plan = self._get_payment_plan(obj_data)
+                payment_cycle = self._get_payment_cycle(obj_data)
                 date_valid_from, date_valid_to = self._get_dates_parameter(obj_data)
                 payroll, dict_representation = self._save_payroll(obj_data)
                 if not bool(from_failed_invoices_payroll_id):
@@ -78,7 +80,8 @@ class PayrollService(BaseService):
                         beneficiaries_queryset,
                         date_valid_from,
                         date_valid_to,
-                        payroll
+                        payroll,
+                        payment_cycle
                     )
                 else:
                     self._move_benefit_consumptions(payroll, from_failed_invoices_payroll_id)
@@ -162,6 +165,11 @@ class PayrollService(BaseService):
         payment_plan = PaymentPlan.objects.get(id=payment_plan_id)
         return payment_plan
 
+    def _get_payment_cycle(self, obj_data):
+        payment_cycle_id = obj_data.get("payment_cycle_id")
+        payment_cycle = PaymentCycle.objects.get(id=payment_cycle_id)
+        return payment_cycle
+
     def _get_dates_parameter(self, obj_data):
         date_valid_from = obj_data.get('date_valid_from', None)
         date_valid_to = obj_data.get('date_valid_to', None)
@@ -188,14 +196,15 @@ class PayrollService(BaseService):
 
         return beneficiaries_queryset
 
-    def _generate_benefits(self, payment_plan, beneficiaries_queryset, date_from, date_to, payroll):
+    def _generate_benefits(self, payment_plan, beneficiaries_queryset, date_from, date_to, payroll, payment_cycle):
         calculation = get_calculation_object(payment_plan.calculation)
         calculation.calculate_if_active_for_object(
             payment_plan,
             user_id=self.user.id,
             start_date=date_from, end_date=date_to,
             beneficiaries_queryset=beneficiaries_queryset,
-            payroll=payroll
+            payroll=payroll,
+            payment_cycle=payment_cycle
         )
 
     @transaction.atomic
