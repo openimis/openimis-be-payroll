@@ -94,6 +94,7 @@ class Query(graphene.ObjectType):
         client_mutation_id=graphene.String(),
         benefitPlanName=graphene.String(),
         benefitPlanUuid=graphene.String(),
+        paymentCycleUuid=graphene.String(),
     )
 
     benefits_summary = graphene.Field(
@@ -101,6 +102,7 @@ class Query(graphene.ObjectType):
         individualId=graphene.String(),
         payrollId=graphene.String(),
         benefitPlanUuid=graphene.String(),
+        paymentCycleUuid=graphene.String(),
     )
 
     def resolve_bill_by_payroll(self, info, **kwargs):
@@ -195,6 +197,10 @@ class Query(graphene.ObjectType):
         if benefit_plan_uuid:
             filters.append(Q(payroll__payment_plan__benefit_plan_id=benefit_plan_uuid))
 
+        payment_cycle_uuid = kwargs.get("paymentCycleUuid")
+        if payment_cycle_uuid:
+            filters.append(Q(payroll__payment_cycle_id=payment_cycle_uuid))
+
         query = PayrollBenefitConsumption.objects.filter(*filters)
         return gql_optimizer.query(query, info)
 
@@ -232,6 +238,7 @@ class Query(graphene.ObjectType):
         individual_id = kwargs.get("individualId", None)
         payroll_id = kwargs.get("payrollId", None)
         benefit_plan_uuid = kwargs.get("benefitPlanUuid", None)
+        payment_cycle_uuid = kwargs.get("paymentCycleUuid", None)
 
         if individual_id:
             filters.append(Q(individual__id=individual_id))
@@ -241,6 +248,9 @@ class Query(graphene.ObjectType):
 
         if benefit_plan_uuid:
             filters.append(Q(payrollbenefitconsumption__payroll__payment_plan__benefit_plan_id=benefit_plan_uuid))
+
+        if payment_cycle_uuid:
+            filters.append(Q(payrollbenefitconsumption__payroll__payment_cycle_id=payment_cycle_uuid))
 
         amount_received = BenefitConsumption.objects.filter(
             *filters,
