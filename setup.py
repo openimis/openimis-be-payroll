@@ -26,7 +26,8 @@ setup(
         'djangorestframework',
         'openimis-be-core',
         'openimis-be-location',
-        'openimis-be-invoice'
+        'openimis-be-invoice',
+        'openimis-be-payment_cycle',
     ],
     classifiers=[
         'Environment :: Web Environment',
