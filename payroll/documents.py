@@ -101,7 +101,6 @@ if 'opensearch_reports' in apps.app_configs:
             'payment_cycle': opensearch_fields.ObjectField(properties={
                 'code': opensearch_fields.KeywordField(),
                 'status': opensearch_fields.KeywordField(),
-                'type': opensearch_fields.KeywordField(),
                 'start_date': opensearch_fields.DateField(),
                 'end_date': opensearch_fields.DateField(),
             })
