@@ -213,7 +213,7 @@ if 'opensearch_reports' in apps.app_configs:
 
         def get_instances_from_related(self, related_instance):
             if isinstance(related_instance, Payroll):
-                return BenefitAttachment.objects.filter(benefit__payroll=related_instance)
+                return BenefitAttachment.objects.filter(payrollbenefitconsumption__payroll=related_instance)
             elif isinstance(related_instance, Bill):
                 return BenefitAttachment.objects.filter(bill=related_instance)
             elif isinstance(related_instance, BenefitConsumption):
