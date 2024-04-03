@@ -19,7 +19,7 @@ if 'opensearch_reports' in apps.app_configs:
     class PayrollDocument(Document):
         name = opensearch_fields.KeywordField()
         status = opensearch_fields.KeywordField()
-        payment_method = opensearch_fields.DateField()
+        payment_method = opensearch_fields.KeywordField()
         date_created = opensearch_fields.DateField()
         payment_plan = opensearch_fields.ObjectField(properties={
             'code': opensearch_fields.KeywordField(),
@@ -98,7 +98,7 @@ if 'opensearch_reports' in apps.app_configs:
         payroll = opensearch_fields.ObjectField(properties={
             'name': opensearch_fields.KeywordField(),
             'status': opensearch_fields.KeywordField(),
-            'payment_method': opensearch_fields.DateField(),
+            'payment_method': opensearch_fields.KeywordField(),
             'date_created': opensearch_fields.DateField(),
             'payment_plan': opensearch_fields.ObjectField(properties={
                 'code': opensearch_fields.KeywordField(),
@@ -178,10 +178,10 @@ if 'opensearch_reports' in apps.app_configs:
                 'dob': opensearch_fields.DateField(),
             })
         })
-        payroll = opensearch_fields.ObjectField(properties={
+        payroll = opensearch_fields.NestedField(properties={
             'name': opensearch_fields.KeywordField(),
             'status': opensearch_fields.KeywordField(),
-            'payment_method': opensearch_fields.DateField(),
+            'payment_method': opensearch_fields.KeywordField(),
             'date_created': opensearch_fields.DateField(),
             'payment_plan': opensearch_fields.ObjectField(properties={
                 'code': opensearch_fields.KeywordField(),
