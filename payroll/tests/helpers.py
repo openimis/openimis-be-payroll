@@ -32,7 +32,9 @@ class LogInHelper:
 
 
 class PaymentPointHelper:
-    _TEST_DATA_PAYMENT_POINT = {
+    _TEST_DATA_PAYMENT_POINT = None
+    def __init__(self):
+        self._TEST_DATA_PAYMENT_POINT=        {
         "name": "TestPaymentPoint",
         "location": Location.objects.filter(validity_to__isnull=True, type='V').first()
     }
