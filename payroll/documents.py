@@ -1,7 +1,9 @@
 from django.apps import apps
 
+from payroll.apps import PayrollConfig
+
 # Check if the 'opensearch_reports' app is in INSTALLED_APPS
-if 'opensearch_reports' in apps.app_configs:
+if 'opensearch_reports' in apps.app_configs and PayrollConfig.opensearch_synch:
     from django_opensearch_dsl import Document, fields as opensearch_fields
     from django_opensearch_dsl.registries import registry
     from payroll.models import (
