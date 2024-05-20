@@ -38,6 +38,7 @@ DEFAULT_CONFIG = {
     "csv_reconciliation_paid_yes": "Yes",
     "csv_reconciliation_paid_no": "No",
     "payroll_delete_event": "payroll.payroll_delete",
+    "opensearch_synch": False,
 }
 
 
@@ -66,6 +67,7 @@ class PayrollConfig(AppConfig):
     csv_reconciliation_paid_yes = None
     csv_reconciliation_paid_no = None
     payroll_delete_event = None
+    opensearch_synch = None
 
     def ready(self):
         from core.models import ModuleConfiguration
