@@ -183,7 +183,9 @@ class PayrollService(BaseService):
         ] if json_ext else []
 
         beneficiaries_queryset = Beneficiary.objects.filter(
-            benefit_plan__id=payment_plan.benefit_plan.id, status=BeneficiaryStatus.ACTIVE
+            benefit_plan__id=payment_plan.benefit_plan.id,
+            status=BeneficiaryStatus.ACTIVE,
+            is_deleted=False,
         )
 
         if custom_filters:
