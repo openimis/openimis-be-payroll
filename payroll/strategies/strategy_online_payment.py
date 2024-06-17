@@ -3,8 +3,6 @@ from django.db import transaction
 
 from core.signals import register_service_signal
 from payroll.strategies.strategy_of_payments_interface import StrategyOfPaymentInterface
-from workflow.services import WorkflowService
-from workflow.systems.base import WorkflowHandler
 
 
 class StrategyOnlinePayment(StrategyOfPaymentInterface):
@@ -13,47 +11,18 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
 
     @classmethod
     def accept_payroll(cls, payroll, user, **kwargs):
-        workflow = cls._get_payment_workflow(cls.WORKFLOW_NAME, cls.WORKFLOW_GROUP)
-        cls._send_data_to_adaptor(workflow, payroll, user, **kwargs)
+        cls._send_data_to_adaptor(payroll, user, **kwargs)
 
     @classmethod
     def acknowledge_of_reponse_view(cls, payroll, response_from_gateway, user, rejected_bills):
         # save response coming from payment gateway in json_ext
         cls._save_payroll_data(payroll, user, response_from_gateway)
-        # update bill attached to the payroll
-        cls._save_bill_data(payroll, rejected_bills)
 
     @classmethod
     @transaction.atomic
     def reconcile_payroll(cls, payroll, user):
-        from invoice.models import Bill
-        from core import datetime
-        current_date = datetime.date.today()
-        common_data = {
-            "status": Bill.Status.VALIDATED,
-            "dateBill": current_date,
-        }
-        unpaid_bills = cls._get_bill_attached_to_payroll(payroll, Bill.Status.UNPAID)
-        for bill in unpaid_bills:
-            cls._create_new_bill_for_unpaid(bill, user, current_date, common_data)
-
-        paid_bills = cls._get_bill_attached_to_payroll(payroll, Bill.Status.PAID)
-        for bill in paid_bills:
-            cls._create_bill_payment_for_paid_bill(bill, user, current_date)
-
-        paid_bills.update(status=Bill.Status.RECONCILIATED)
         from payroll.models import PayrollStatus
-        payroll.status = PayrollStatus.RECONCILIATED
-        payroll.save(username=user.username)
-
-    @classmethod
-    def _create_new_bill_for_unpaid(cls, bill, user, current_date, common_data):
-        new_data = {
-            **common_data,
-            "code": f"{bill.code}-{current_date}-Unpaid",
-            "json_ext": {"unpaid": True}
-        }
-        bill.replace_object(data=new_data, username=user.username)
+        cls.change_status_of_payroll(payroll, PayrollStatus.RECONCILED, user)
 
     @classmethod
     def _create_bill_payment_for_paid_bill(cls, bill, user, current_date):
@@ -90,83 +59,47 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         payment_service.create_with_detail(bill_payment, bill_payment_details)
 
     @classmethod
-    def _get_payment_workflow(cls, workflow_name: str, workflow_group: str):
-        result = WorkflowService.get_workflows(workflow_name, workflow_group)
-        workflows = result.get('data', {}).get('workflows')
-        workflow = workflows[0]
-        return workflow
+    def _get_payroll_bills_amount(cls, payroll):
+        from payroll.models import Payroll
+        payroll_with_benefit_sum = Payroll.objects.filter(id=payroll.id).annotate(
+            total_benefit_amount=Sum('payrollbenefitconsumption__benefit__amount')
+        ).first()
+        return payroll_with_benefit_sum.total_benefit_amount
 
     @classmethod
-    def _get_payroll_bills_amount(cls, payroll, status):
-        bills = cls._get_bill_attached_to_payroll(payroll, status)
-        total_amount = str(bills.aggregate(total_amount=Sum('amount_total'))['total_amount'])
-        return total_amount
+    def _get_benefits_attached_to_payroll(cls, payroll):
+        from payroll.models import BenefitConsumption
+        filters = Q(
+            payrollbenefitconsumption__payroll_id=payroll.id,
+            is_deleted=False,
+            payrollbenefitconsumption__is_deleted=False,
+            payrollbenefitconsumption__payroll__is_deleted=False,
+        )
+        benefits = BenefitConsumption.objects.filter(filters)
+        return benefits
 
     @classmethod
-    def _get_bill_attached_to_payroll(cls, payroll, status):
-        from invoice.models import Bill
-        filters = [Q(payrollbill__payroll_id=payroll.uuid,
-                     is_deleted=False,
-                     payrollbill__is_deleted=False,
-                     payrollbill__payroll__is_deleted=False,
-                     status=status
-                     )]
-        bills = Bill.objects.filter(*filters)
-        return bills
+    def _get_benefits_to_string(cls, benefits):
+        benefits_uuids = [str(benefit.id) for benefit in benefits]
+        benefits_uuids_string = ",".join(benefits_uuids)
+        return benefits_uuids_string
 
     @classmethod
-    def _get_bills_to_string(cls, bills):
-        bill_uuids = [str(bill.uuid) for bill in bills]
-        bill_uuids_string = ",".join(bill_uuids)
-        return bill_uuids_string
-
-    @classmethod
-    def _send_data_to_adaptor(cls, workflow: WorkflowHandler, payroll, user, **kwargs):
-        from invoice.models import Bill
-        total_amount = cls._get_payroll_bills_amount(payroll, Bill.Status.VALIDATED)
-        bills = cls._get_bill_attached_to_payroll(payroll, Bill.Status.VALIDATED)
-        bill_uuids_string = cls._get_bills_to_string(bills)
-        workflow.run({
-            'user_uuid': str(user.id),
-            'payroll_uuid': str(payroll.uuid),
-            'payroll_amount': total_amount,
-            'bills': bill_uuids_string,
-        })
+    def _send_data_to_adaptor(cls, payroll, user, **kwargs):
+        total_amount = cls._get_payroll_bills_amount(payroll)
+        bills = cls._get_benefits_attached_to_payroll(payroll)
+        bill_uuids_string = cls._get_benefits_to_string(bills)
+        # TODO - add here connection with gateway endpoint
         from payroll.models import PayrollStatus
-        payroll.status = PayrollStatus.ONGOING
-        payroll.save(username=user.login_name)
+        cls.change_status_of_payroll(payroll, PayrollStatus.APPROVE_FOR_PAYMENT, user)
 
     @classmethod
     def _save_payroll_data(cls, payroll, user, response_from_gateway):
-        from payroll.models import PayrollStatus
         json_ext = payroll.json_ext if payroll.json_ext else {}
         json_ext['response_from_gateway'] = response_from_gateway
         payroll.json_ext = json_ext
-        payroll.status = PayrollStatus.AWAITING_FOR_RECONCILIATION
         payroll.save(username=user.username)
         cls._create_payroll_reconcilation_task(payroll, user)
-
-    @classmethod
-    def _save_bill_data(cls, payroll, rejected_bills):
-        from invoice.models import Bill
-        rejected_bills, bills = cls._exclude_rejected_bills(payroll, rejected_bills)
-        bills.update(status=Bill.Status.PAID)
-        rejected_bills.update(status=Bill.Status.UNPAID)
-
-    @classmethod
-    def _exclude_rejected_bills(cls, payroll, rejected_bills):
-        from invoice.models import Bill
-        rejected_uuids = [uuid.strip() for uuid in rejected_bills.split(',') if uuid.strip()]
-        include_query = Q(uuid__in=rejected_uuids)
-        rejected_bills_queryset = cls._get_bill_attached_to_payroll(
-            payroll,
-            Bill.Status.VALIDATED
-        ).filter(include_query)
-        bills = cls._get_bill_attached_to_payroll(
-            payroll,
-            Bill.Status.VALIDATED
-        ).exclude(include_query)
-        return rejected_bills_queryset, bills
 
     @classmethod
     @register_service_signal('online_payments.create_task')
