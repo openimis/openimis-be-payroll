@@ -23,6 +23,7 @@ from payroll.models import (
     BenefitAttachment,
     BenefitConsumptionStatus
 )
+from payroll.tasks import send_requests_to_gateway_payment
 from payroll.payments_registry import PaymentMethodStorage
 from payroll.validation import PaymentPointValidation, PayrollValidation, BenefitConsumptionValidation
 from payroll.strategies import StrategyOfPaymentInterface
@@ -152,6 +153,10 @@ class PayrollService(BaseService):
             'business_event': PayrollConfig.payroll_reject_event,
             'data': _get_std_task_data_payload(data)
         })
+
+    def make_payment_for_payroll(self, obj_data):
+        payroll_id = obj_data['id']
+        send_requests_to_gateway_payment.delay(payroll_id, self.user.id)
 
     def _save_payroll(self, obj_data):
         obj_ = self.OBJECT_TYPE(**obj_data)

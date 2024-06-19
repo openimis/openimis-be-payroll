@@ -39,6 +39,17 @@ DEFAULT_CONFIG = {
     "csv_reconciliation_paid_no": "No",
     "payroll_delete_event": "payroll.payroll_delete",
     "opensearch_synch": False,
+
+    "gateway_base_url": "http://41.175.18.170:8070/api/mobile/v1/",
+    "endpoint_payment": "mock/payment",
+    "endpoint_reconciliation": "mock/reconciliation",
+    "payment_gateway_api_key": "default-api-key",
+    "payment_gateway_basic_auth_username": "soldevelo@coremis.com",
+    "payment_gateway_basic_auth_password": "password",
+    "payment_gateway_timeout": 5,
+    "payment_gateway_auth_type": "basic",  # can be 'token' or 'basic'
+    "payment_gateway_class": "payroll.payment_gateway.MockedPaymentGatewayConnector",
+    "receipt_length": 8
 }
 
 
@@ -68,6 +79,17 @@ class PayrollConfig(AppConfig):
     csv_reconciliation_paid_no = None
     payroll_delete_event = None
     opensearch_synch = None
+
+    gateway_base_url = None
+    endpoint_payment = None
+    endpoint_reconciliation = None
+    payment_gateway_api_key = None
+    payment_gateway_basic_auth_username = None
+    payment_gateway_basic_auth_password = None
+    payment_gateway_timeout = None
+    payment_gateway_auth_type = None
+    payment_gateway_class = None
+    receipt_length = None
 
     def ready(self):
         from core.models import ModuleConfiguration

@@ -129,6 +129,12 @@ class PaymentMethodGQLType(graphene.ObjectType):
     name = graphene.String()
 
 
+class PaymentGatewayConfigGQLType(graphene.ObjectType):
+    base_url = graphene.String()
+    api_key = graphene.String()
+    timeout = graphene.Int()
+
+
 class PaymentMethodListGQLType(graphene.ObjectType):
     payment_methods = graphene.List(PaymentMethodGQLType)
 
