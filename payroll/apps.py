@@ -1,3 +1,5 @@
+import os
+
 from django.apps import AppConfig
 
 from core.custom_filters import CustomFilterRegistryPoint
@@ -43,9 +45,9 @@ DEFAULT_CONFIG = {
     "gateway_base_url": "http://41.175.18.170:8070/api/mobile/v1/",
     "endpoint_payment": "mock/payment",
     "endpoint_reconciliation": "mock/reconciliation",
-    "payment_gateway_api_key": "default-api-key",
-    "payment_gateway_basic_auth_username": "soldevelo@coremis.com",
-    "payment_gateway_basic_auth_password": "password",
+    "payment_gateway_api_key": os.getenv('PAYMENT_GATEWAY_API_KEY'),
+    "payment_gateway_basic_auth_username": os.getenv('PAYMENT_GATEWAY_BASIC_AUTH_USERNAME'),
+    "payment_gateway_basic_auth_password": os.getenv('PAYMENT_GATEWAY_BASIC_AUTH_PASSWORD'),
     "payment_gateway_timeout": 5,
     "payment_gateway_auth_type": "basic",  # can be 'token' or 'basic'
     "payment_gateway_class": "payroll.payment_gateway.MockedPaymentGatewayConnector",
