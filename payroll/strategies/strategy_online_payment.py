@@ -42,6 +42,54 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         send_request_to_reconcile.delay(payroll.id, user.id)
 
     @classmethod
+    def get_benefits_attached_to_payroll(cls, payroll, status):
+        from payroll.models import BenefitConsumption
+        filters = Q(
+            payrollbenefitconsumption__payroll_id=payroll.id,
+            is_deleted=False,
+            status=status,
+            payrollbenefitconsumption__is_deleted=False,
+            payrollbenefitconsumption__payroll__is_deleted=False,
+        )
+        benefits = BenefitConsumption.objects.filter(filters)
+        return benefits
+
+    @classmethod
+    def approve_for_payment_benefit_consumption(cls, benefits, user):
+        from payroll.models import BenefitConsumptionStatus
+        for benefit in benefits:
+            try:
+                benefit.status = BenefitConsumptionStatus.APPROVE_FOR_PAYMENT
+                benefit.save(username=user.login_name)
+            except Exception as e:
+                logger.debug(f"Failed to approve benefit consumption {benefit.code}: {str(e)}")
+
+    @classmethod
+    def reconcile_benefit_consumption(cls, benefits, user):
+        from payroll.models import BenefitConsumptionStatus
+        from payroll.apps import PayrollConfig
+        from invoice.models import Bill
+        for benefit in benefits:
+            try:
+                receipt = CodeGenerator.generate_unique_code(
+                    'payroll',
+                    'BenefitConsumption',
+                    'receipt',
+                    PayrollConfig.receipt_length,
+                )
+                benefit.receipt = receipt
+                benefit.status = BenefitConsumptionStatus.RECONCILED
+                benefit.save(username=user.login_name)
+                bill = Bill.objects.filter(
+                    benefitattachment__benefit=benefit,
+                    is_deleted=False
+                ).first()
+                if bill:
+                    cls._create_bill_payment_for_paid_bill(benefit, bill, user)
+            except Exception as e:
+                logger.debug(f"Failed to approve benefit consumption {benefit.code}: {str(e)}")
+
+    @classmethod
     def _create_bill_payment_for_paid_bill(cls, benefit, bill, user):
         from core import datetime
         from django.contrib.contenttypes.models import ContentType
@@ -78,7 +126,7 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
         }
         bill_payment_details = DetailPaymentInvoice(**bill_payment_details)
         payment_service = PaymentInvoiceService(user)
-        d = payment_service.create_with_detail(bill_payment, bill_payment_details)
+        payment_service.create_with_detail(bill_payment, bill_payment_details)
 
     @classmethod
     def _get_payroll_bills_amount(cls, payroll):
@@ -87,19 +135,6 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
             total_benefit_amount=Sum('payrollbenefitconsumption__benefit__amount')
         ).first()
         return payroll_with_benefit_sum.total_benefit_amount
-
-    @classmethod
-    def get_benefits_attached_to_payroll(cls, payroll, status):
-        from payroll.models import BenefitConsumption
-        filters = Q(
-            payrollbenefitconsumption__payroll_id=payroll.id,
-            is_deleted=False,
-            status=status,
-            payrollbenefitconsumption__is_deleted=False,
-            payrollbenefitconsumption__payroll__is_deleted=False,
-        )
-        benefits = BenefitConsumption.objects.filter(filters)
-        return benefits
 
     @classmethod
     def _get_benefits_to_string(cls, benefits):
@@ -121,41 +156,6 @@ class StrategyOnlinePayment(StrategyOfPaymentInterface):
                 logger.info(f"Payment for benefit ({benefit.code}) was rejected.")
         if benefits_to_approve:
             cls.approve_for_payment_benefit_consumption(benefits_to_approve, user)
-
-    @classmethod
-    def approve_for_payment_benefit_consumption(cls, benefits, user):
-        from payroll.models import BenefitConsumptionStatus
-        for benefit in benefits:
-            try:
-                benefit.status = BenefitConsumptionStatus.APPROVE_FOR_PAYMENT
-                benefit.save(username=user.login_name)
-            except Exception as e:
-                logger.debug(f"Failed to approve benefit consumption {benefit.code}: {str(e)}")
-
-    @classmethod
-    def reconcile_benefit_consumption(cls, benefits, user):
-        from payroll.models import BenefitConsumptionStatus
-        from payroll.apps import PayrollConfig
-        from invoice.models import Bill
-        for benefit in benefits:
-            try:
-                receipt = CodeGenerator.generate_unique_code(
-                    'payroll',
-                    'BenefitConsumption',
-                    'receipt',
-                    PayrollConfig.receipt_length,
-                )
-                benefit.receipt = receipt
-                benefit.status = BenefitConsumptionStatus.RECONCILED
-                benefit.save(username=user.login_name)
-                bill = Bill.objects.filter(
-                    benefitattachment__benefit=benefit,
-                    is_deleted=False
-                ).first()
-                if bill:
-                    cls._create_bill_payment_for_paid_bill(benefit, bill, user)
-            except Exception as e:
-                logger.debug(f"Failed to approve benefit consumption {benefit.code}: {str(e)}")
 
     @classmethod
     def _process_accepted_payroll(cls, payroll, user, **kwargs):

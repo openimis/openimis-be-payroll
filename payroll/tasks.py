@@ -25,6 +25,7 @@ def send_request_to_reconcile(payroll_id, user_id):
     user = User.objects.get(id=user_id)
     strategy = StrategyOnlinePayment
     strategy.initialize_payment_gateway()
+    strategy.change_status_of_payroll(payroll, PayrollStatus.RECONCILED, user)
     benefits = strategy.get_benefits_attached_to_payroll(payroll, BenefitConsumptionStatus.APPROVE_FOR_PAYMENT)
     payment_gateway_connector = strategy.PAYMENT_GATEWAY
     benefits_to_reconcile = []
@@ -36,4 +37,3 @@ def send_request_to_reconcile(payroll_id, user_id):
             logger.info(f"Payment for benefit ({benefit.code}) was rejected.")
     if benefits_to_reconcile:
         strategy.reconcile_benefit_consumption(benefits_to_reconcile, user)
-    strategy.change_status_of_payroll(payroll, PayrollStatus.RECONCILED, user)
