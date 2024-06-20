@@ -4,7 +4,15 @@ import abc
 class StrategyOfPaymentInterface(object,  metaclass=abc.ABCMeta):
 
     @classmethod
+    def initialize_payment_gateway(cls):
+        pass
+
+    @classmethod
     def accept_payroll(cls, payroll, user, **kwargs):
+        pass
+
+    @classmethod
+    def make_payment_for_payroll(cls, payroll, user, **kwargs):
         pass
 
     @classmethod

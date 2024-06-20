@@ -26,6 +26,12 @@ class DeletePaymentPointInputType(OpenIMISMutation.Input):
     ids = graphene.List(graphene.UUID, required=True)
 
 
+class UpdatePaymentGatewayConfigInputType(OpenIMISMutation.Input):
+    base_url = graphene.String(required=True, max_length=255)
+    api_key = graphene.String(required=True, max_length=255)
+    timeout = graphene.Int(required=True)
+
+
 class CreatePayrollInput(OpenIMISMutation.Input):
     class PayrollStatusEnum(graphene.Enum):
         PENDING_APPROVAL = PayrollStatus.PENDING_APPROVAL
@@ -214,6 +220,35 @@ class ClosePayrollMutation(BaseHistoryModelDeleteMutationMixin, BaseMutation):
             with transaction.atomic():
                 for id in ids:
                     service.close_payroll({'id': id})
+
+    class Input(DeletePayrollInputType):
+        pass
+
+
+class MakePaymentForPayrollMutation(BaseHistoryModelDeleteMutationMixin, BaseMutation):
+    _mutation_class = "MakePaymentForPayrollMutation"
+    _mutation_module = "payroll"
+    _model = Payroll
+
+    @classmethod
+    def _validate_mutation(cls, user, **data):
+        super()._validate_mutation(user, **data)
+        if not user.has_perms(PayrollConfig.gql_payroll_create_perms):
+            raise ValidationError("mutation.authentication_required")
+
+    @classmethod
+    def _mutate(cls, user, **data):
+        if "client_mutation_id" in data:
+            data.pop('client_mutation_id')
+        if "client_mutation_label" in data:
+            data.pop('client_mutation_label')
+
+        service = PayrollService(user)
+        ids = data.get('ids')
+        if ids:
+            with transaction.atomic():
+                for id in ids:
+                    service.make_payment_for_payroll({'id': id})
 
     class Input(DeletePayrollInputType):
         pass

@@ -11,11 +11,13 @@ from invoice.models import Bill
 from location.services import get_ancestor_location_filter
 from payroll.apps import PayrollConfig
 from payroll.gql_mutations import CreatePaymentPointMutation, UpdatePaymentPointMutation, DeletePaymentPointMutation, \
-    CreatePayrollMutation, DeletePayrollMutation, ClosePayrollMutation, RejectPayrollMutation
+    CreatePayrollMutation, DeletePayrollMutation, ClosePayrollMutation, \
+    RejectPayrollMutation, MakePaymentForPayrollMutation
 from payroll.gql_queries import BenefitConsumptionGQLType, PaymentPointGQLType, \
     PayrollGQLType, PaymentMethodGQLType, \
     PaymentMethodListGQLType, BenefitAttachmentListGQLType, \
-    CsvReconciliationUploadGQLType, PayrollBenefitConsumptionGQLType, BenefitsSummaryGQLType
+    CsvReconciliationUploadGQLType, PayrollBenefitConsumptionGQLType, \
+    PaymentGatewayConfigGQLType, BenefitsSummaryGQLType
 from payroll.models import PaymentPoint, Payroll, \
     BenefitConsumption, BenefitAttachment, \
     CsvReconciliationUpload, PayrollBenefitConsumption, BenefitConsumptionStatus
@@ -59,6 +61,10 @@ class Query(graphene.ObjectType):
 
     payment_methods = graphene.Field(
         PaymentMethodListGQLType,
+    )
+
+    payment_gateway_config = graphene.Field(
+        PaymentGatewayConfigGQLType,
     )
 
     benefit_consumption_by_payroll = OrderedDjangoFilterConnectionField(
@@ -224,6 +230,13 @@ class Query(graphene.ObjectType):
         gql_payment_methods = Query._build_payment_method_options(payment_methods)
         return PaymentMethodListGQLType(gql_payment_methods)
 
+    def resolve_payment_gateway_config(self, info):
+        return PaymentGatewayConfigGQLType(
+            base_url=PayrollConfig.payment_gateway_base_url,
+            api_key=PayrollConfig.payment_gateway_api_key,
+            timeout=PayrollConfig.payment_gateway_timeout,
+        )
+
     def resolve_csv_reconciliation_upload(self, info, **kwargs):
         Query._check_permissions(info.context.user, PayrollConfig.gql_csv_reconciliation_search_perms)
         filters = append_validity_filter(**kwargs)
@@ -296,3 +309,4 @@ class Mutation(graphene.ObjectType):
     delete_payroll = DeletePayrollMutation.Field()
     close_payroll = ClosePayrollMutation.Field()
     reject_payroll = RejectPayrollMutation.Field()
+    make_payment_for_payroll = MakePaymentForPayrollMutation.Field()
