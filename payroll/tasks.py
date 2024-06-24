@@ -30,10 +30,23 @@ def send_request_to_reconcile(payroll_id, user_id):
     payment_gateway_connector = strategy.PAYMENT_GATEWAY
     benefits_to_reconcile = []
     for benefit in benefits:
-        if payment_gateway_connector.reconcile(benefit.code, benefit.amount):
+        is_reconciled = payment_gateway_connector.reconcile(benefit.code, benefit.amount)
+        # Initialize json_ext if it is None
+        if benefit.json_ext is None:
+            benefit.json_ext = {}
+        if is_reconciled:
+            new_json_ext = benefit.json_ext.copy() if benefit.json_ext else {}
+            new_json_ext['output_gateway'] = is_reconciled
+            new_json_ext['gateway_reconciliation_success'] = True
+            benefit.json_ext = {**benefit.json_ext, **new_json_ext}
             benefits_to_reconcile.append(benefit)
         else:
             # Handle the case where a benefit payment is rejected
+            new_json_ext = benefit.json_ext.copy() if benefit.json_ext else {}
+            new_json_ext['output_gateway'] = is_reconciled
+            new_json_ext['gateway_reconciliation_success'] = False
+            benefit.json_ext = {**benefit.json_ext, **new_json_ext}
+            benefit.save(username=user.login_name)
             logger.info(f"Payment for benefit ({benefit.code}) was rejected.")
     if benefits_to_reconcile:
         strategy.reconcile_benefit_consumption(benefits_to_reconcile, user)
