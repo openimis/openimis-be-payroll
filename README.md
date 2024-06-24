@@ -1,5 +1,75 @@
 # openIMIS Backend payroll reference module
 
+## Payroll and Benefit Management Models and Their Fields
+
+### PayrollStatus
+- Represents the status of a payroll.
+- Available statuses:
+  - PENDING_APPROVAL
+  - APPROVE_FOR_PAYMENT
+  - REJECTED
+  - RECONCILED
+
+### BenefitConsumptionStatus
+- Represents the status of benefit consumption.
+- Available statuses:
+  - ACCEPTED
+  - CREATED
+  - APPROVE_FOR_PAYMENT
+  - REJECTED
+  - DUPLICATE
+  - RECONCILED
+
+### PaymentPoint
+- **name**: Name of the payment point.
+- **location**: Foreign key to `Location`.
+- **ppm**: Foreign key to `User`.
+
+### Payroll
+- **name**: Name of the payroll.
+- **payment_plan**: Foreign key to `PaymentPlan`.
+- **payment_cycle**: Foreign key to `PaymentCycle`.
+- **payment_point**: Foreign key to `PaymentPoint`.
+- **status**: Status of the payroll (uses `PayrollStatus` choices).
+- **payment_method**: Method of payment.
+
+### PayrollBill
+- **payroll**: Foreign key to `Payroll`.
+- **bill**: Foreign key to `Bill`.
+
+### PaymentAdaptorHistory
+- **payroll**: Foreign key to `Payroll`.
+- **total_amount**: Total amount as a string.
+- **bills_ids**: JSON field for bill IDs.
+
+### BenefitConsumption
+- **individual**: Foreign key to `Individual`.
+- **photo**: Text field for photo.
+- **code**: Code for benefit consumption.
+- **date_due**: Due date.
+- **receipt**: Receipt number.
+- **amount**: Amount (decimal).
+- **type**: Type of benefit.
+- **status**: Status of benefit consumption (uses `BenefitConsumptionStatus` choices).
+
+### BenefitAttachment
+- **benefit**: Foreign key to `BenefitConsumption`.
+- **bill**: Foreign key to `Bill`.
+
+### PayrollBenefitConsumption
+- **payroll**: Foreign key to `Payroll`.
+- **benefit**: Foreign key to `BenefitConsumption`.
+
+### CsvReconciliationUpload
+- **payroll**: Foreign key to `Payroll`.
+- **status**: Status of the reconciliation upload (uses `CsvReconciliationUpload.Status` choices).
+- **error**: JSON field for errors.
+- **file_name**: Name of the file.
+
+### PayrollMutation
+- **payroll**: Foreign key to `Payroll`.
+- **mutation**: Foreign key to `MutationLog`.
+
 ## Digital Means of Payment Configuration
 
 This section details the configuration settings required for integrating with a digital payment gateway. The settings are defined in the application's configuration file (`apps.py`).
@@ -16,13 +86,10 @@ This section details the configuration settings required for integrating with a 
   - Example: `"mock/reconciliation"`
 
 - **payment_gateway_api_key**: The API key for authenticating with the payment gateway. It is retrieved from environment variables.
-  - Example: `os.getenv('PAYMENT_GATEWAY_API_KEY')`
 
 - **payment_gateway_basic_auth_username**: The username for basic authentication with the payment gateway. It is retrieved from environment variables.
-  - Example: `os.getenv('PAYMENT_GATEWAY_BASIC_AUTH_USERNAME')`
 
 - **payment_gateway_basic_auth_password**: The password for basic authentication with the payment gateway. It is retrieved from environment variables.
-  - Example: `os.getenv('PAYMENT_GATEWAY_BASIC_AUTH_PASSWORD')`
 
 - **payment_gateway_timeout**: The timeout setting for requests to the payment gateway, in seconds.
   - Example: `5`
@@ -100,7 +167,7 @@ When the `payment_method` of a Payroll is set to `StrategyOnlinePayment`, the co
 1. **Populate/Generate Payroll**: Ensure the payroll has `payment_method='StrategyOnlinePayment'`.
 2. **Accept or Reject Payroll**: Use the maker-checker logic to either accept or reject the payroll.
 3. **Accepted Payroll**:
-   - Navigate to `Payrolls -> Accepted Payrolls`.
+   - Navigate to `Legal and Finance (Payments) -> Accepted Payrolls`.
    - Click the `Make Payment` button. This triggers the payment flow defined in the configuration.
 4. **Invoice Submission**:
    - If all invoices are sent successfully, go to the view reconciliation summary.
@@ -117,6 +184,11 @@ When the `payment_method` of a Payroll is set to `StrategyOnlinePayment`, the co
    - Even if the payroll is reconciled, some benefits might not be paid due to errors.
    - The status will remain `Approved for Payment`.
    - Errors can be viewed by clicking the `Error` button.
+   - Unpaid Payroll's invoices can be recreated during re-creation of payroll in reconciled payroll
+9. **Recreate Unpaid Invoices**:
+   - Unpaid payroll invoices can be recreated during the re-creation of payroll in the reconciled payroll section.
+   - The unpaid invoices will be included in the new payroll.
+   - Use the `Create Payroll from Unpaid Invoices` button available when you go to `Legal and Finance -> Reconciled Payrolls -> View Reconciled Payroll -> Create Payment from Failed Invoice`.
 
 ## Payment Flow for Offline Payroll Payments
 
@@ -125,7 +197,7 @@ When the `payment_method` of a Payroll is set to `StrategyOfflinePayment`, the c
 ### Instructions for Making an Offline Payment
 
 1. **Create Payroll**:
-   - Navigate to `Legal and Finance -> Payrolls`.
+   - Navigate to `Legal and Finance (Payments) -> Payrolls`.
    - Click the `+` (add payroll) button to create a new payroll.
 2. **Choose Payment Method**:
    - Select `StrategyOfflinePayment` as the payment method.
@@ -141,3 +213,10 @@ When the `payment_method` of a Payroll is set to `StrategyOfflinePayment`, the c
 6. **Upload Payment Data**:
    - Once the file is prepared, upload it by clicking `Upload Payment Data`.
    - After uploading, you should see the `payments` data reconciled based on the `Paid` status and the presence of a receipt number.
+7. **Reconcile Payroll**:
+   - Click `View Reconciliation Summary` under `Legal and Finance (Payments) -> Reconciled Payrolls`.
+   - If you click `Approve and Close`, to confirm the reconciliation, go to `Tasks` either in the `All Tasks` view or on the `Payroll` page in the `Tasks` tab.
+8. **Recreate Unpaid Invoices**:
+   - Unpaid payroll invoices can be recreated during the re-creation of payroll in the reconciled payroll section.
+   - The unpaid invoices will be included in the new payroll.
+   - Use the `Create Payroll from Unpaid Invoices` button available when you go to `Legal and Finance -> Reconciled Payrolls -> View Reconciled Payroll -> Create Payment from Failed Invoice`.
