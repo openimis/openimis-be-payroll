@@ -1,21 +1,38 @@
 import logging
+import pandas as pd
+from io import BytesIO
 
-from django.db import transaction
-from django.db.models import Q
 from django.contrib.contenttypes.models import ContentType
+from django.db import transaction
+from django.utils.translation import gettext as _
 
+from core import datetime
 from core.custom_filters import CustomFilterWizardStorage
+from core.models import InteractiveUser
 from core.services import BaseService
 from core.signals import register_service_signal
-from invoice.models import Bill
+from invoice.models import Bill, PaymentInvoice, DetailPaymentInvoice
+from invoice.services import PaymentInvoiceService
+from payment_cycle.models import PaymentCycle
 from payroll.apps import PayrollConfig
-from payroll.models import PaymentPoint, Payroll, PayrollBill
-from payroll.validation import PaymentPointValidation, PayrollValidation
+from payroll.models import (
+    PaymentPoint,
+    Payroll,
+    PayrollBenefitConsumption,
+    BenefitConsumption,
+    BenefitAttachment,
+    BenefitConsumptionStatus
+)
+from payroll.payments_registry import PaymentMethodStorage
+from payroll.validation import PaymentPointValidation, PayrollValidation, BenefitConsumptionValidation
+from payroll.strategies import StrategyOfPaymentInterface
+from calculation.services import get_calculation_object
 from core.services.utils import output_exception, check_authentication
-from social_protection.models import Beneficiary
+from contribution_plan.models import PaymentPlan
+from social_protection.models import Beneficiary, BeneficiaryStatus
 from tasks_management.apps import TasksManagementConfig
 from tasks_management.models import Task
-from tasks_management.services import TaskService
+from tasks_management.services import TaskService, _get_std_task_data_payload
 
 logger = logging.getLogger(__name__)
 
@@ -50,17 +67,25 @@ class PayrollService(BaseService):
     def create(self, obj_data):
         try:
             with transaction.atomic():
-                included_unpaid = obj_data.pop("included_unpaid", False)
                 obj_data = self._adjust_create_payload(obj_data)
-                bills_queryset = self._get_bills_queryset(obj_data, included_unpaid)
-                obj_data_and_bills = {**obj_data, "bills": bills_queryset}
-                self.validation_class.validate_create(self.user, **obj_data_and_bills)
-                obj_ = self.OBJECT_TYPE(**obj_data)
-                dict_representation = self.save_instance(obj_)
-                payroll_id = dict_representation["data"]["id"]
-                self._create_payroll_bills(bills_queryset, payroll_id)
-                # create task for accepting or rejecting payroll
-                self._create_accept_payroll_task(payroll_id, obj_data)
+                from_failed_invoices_payroll_id = obj_data.pop("from_failed_invoices_payroll_id", None)
+                payment_plan = self._get_payment_plan(obj_data)
+                payment_cycle = self._get_payment_cycle(obj_data)
+                date_valid_from, date_valid_to = self._get_dates_parameter(obj_data)
+                payroll, dict_representation = self._save_payroll(obj_data)
+                if not bool(from_failed_invoices_payroll_id):
+                    beneficiaries_queryset = self._select_beneficiary_based_on_criteria(obj_data, payment_plan)
+                    self._generate_benefits(
+                        payment_plan,
+                        beneficiaries_queryset,
+                        date_valid_from,
+                        date_valid_to,
+                        payroll,
+                        payment_cycle
+                    )
+                else:
+                    self._move_benefit_consumptions(payroll, from_failed_invoices_payroll_id)
+                self.create_accept_payroll_task(payroll.id, obj_data)
                 return dict_representation
         except Exception as exc:
             return output_exception(model_name=self.OBJECT_TYPE.__name__, method="create", exception=exc)
@@ -72,45 +97,93 @@ class PayrollService(BaseService):
     @check_authentication
     @register_service_signal('payroll_service.delete')
     def delete(self, obj_data):
-        try:
-            with transaction.atomic():
-                self.validation_class.validate_delete(self.user, **obj_data)
-                obj_ = self.OBJECT_TYPE.objects.filter(id=obj_data['id']).first()
-                PayrollBill.objects.filter(payroll=obj_).delete()
-                return self.delete_instance(obj_)
-        except Exception as exc:
-            return output_exception(model_name=self.OBJECT_TYPE.__name__, method="delete", exception=exc)
+        payroll_to_delete = Payroll.objects.get(id=obj_data['id'])
+        data = {'id': payroll_to_delete.id}
+        TaskService(self.user).create({
+            'source': 'payroll_delete',
+            'entity': payroll_to_delete,
+            'status': Task.Status.RECEIVED,
+            'executor_action_event': TasksManagementConfig.default_executor_event,
+            'business_event': PayrollConfig.payroll_delete_event,
+            'data': _get_std_task_data_payload(data)
+        })
+
+    @check_authentication
+    @register_service_signal('payroll_service.attach_benefit_to_payroll')
+    def attach_benefit_to_payroll(self, payroll_id, benefit_id):
+        payroll_benefit = PayrollBenefitConsumption(payroll_id=payroll_id, benefit_id=benefit_id)
+        payroll_benefit.save(username=self.user.username)
 
     @register_service_signal('payroll_service.create_task')
-    def _create_accept_payroll_task(self, payroll_id, obj_data):
+    def create_accept_payroll_task(self, payroll_id, obj_data):
         payroll_to_accept = Payroll.objects.get(id=payroll_id)
+        data = {**obj_data, 'id': payroll_id}
         TaskService(self.user).create({
             'source': 'payroll',
             'entity': payroll_to_accept,
             'status': Task.Status.RECEIVED,
             'executor_action_event': TasksManagementConfig.default_executor_event,
             'business_event': PayrollConfig.payroll_accept_event,
-            'data': f"{obj_data}"
+            'data': _get_std_task_data_payload(data)
         })
 
-    def _create_payroll_bills(self, bills_queryset, payroll_id):
-        for bill in bills_queryset:
-            payroll_bill = PayrollBill(bill_id=bill.id, payroll_id=payroll_id)
-            payroll_bill.save(username=self.user.username)
+    @register_service_signal('payroll_service.close_payroll')
+    def close_payroll(self, obj_data):
+        payroll_to_close = Payroll.objects.get(id=obj_data['id'])
+        data = {'id': payroll_to_close.id}
+        TaskService(self.user).create({
+            'source': 'payroll_reconciliation',
+            'entity': payroll_to_close,
+            'status': Task.Status.RECEIVED,
+            'executor_action_event': TasksManagementConfig.default_executor_event,
+            'business_event': PayrollConfig.payroll_reconciliation_event,
+            'data': _get_std_task_data_payload(data)
+        })
 
-    def _get_bills_queryset(self, obj_data, included_unpaid):
-        benefit_plan_id = obj_data.get("benefit_plan_id")
-        date_from = obj_data.get("date_valid_from")
-        date_to = obj_data.get("date_valid_to")
+    @register_service_signal('payroll_service.reject_approve_payroll')
+    def reject_approved_payroll(self, obj_data):
+        payroll_to_reject = Payroll.objects.get(id=obj_data['id'])
+        data = {'id': payroll_to_reject.id}
+        TaskService(self.user).create({
+            'source': 'payroll_reject',
+            'entity': payroll_to_reject,
+            'status': Task.Status.RECEIVED,
+            'executor_action_event': TasksManagementConfig.default_executor_event,
+            'business_event': PayrollConfig.payroll_reject_event,
+            'data': _get_std_task_data_payload(data)
+        })
+
+    def _save_payroll(self, obj_data):
+        obj_ = self.OBJECT_TYPE(**obj_data)
+        dict_representation = self.save_instance(obj_)
+        payroll_id = dict_representation["data"]["id"]
+        payroll = Payroll.objects.get(id=payroll_id)
+        return payroll, dict_representation
+
+    def _get_payment_plan(self, obj_data):
+        payment_plan_id = obj_data.get("payment_plan_id")
+        payment_plan = PaymentPlan.objects.get(id=payment_plan_id)
+        return payment_plan
+
+    def _get_payment_cycle(self, obj_data):
+        payment_cycle_id = obj_data.get("payment_cycle_id")
+        payment_cycle = PaymentCycle.objects.get(id=payment_cycle_id)
+        return payment_cycle
+
+    def _get_dates_parameter(self, obj_data):
+        date_valid_from = obj_data.get('date_valid_from', None)
+        date_valid_to = obj_data.get('date_valid_to', None)
+        return date_valid_from, date_valid_to
+
+    def _select_beneficiary_based_on_criteria(self, obj_data, payment_plan):
         json_ext = obj_data.get("json_ext")
-
         custom_filters = [
             criterion["custom_filter_condition"]
             for criterion in json_ext.get("advanced_criteria", [])
         ] if json_ext else []
 
         beneficiaries_queryset = Beneficiary.objects.filter(
-            benefit_plan__id=benefit_plan_id
+            benefit_plan__id=payment_plan.benefit_plan.id, status=BeneficiaryStatus.ACTIVE
         )
 
         if custom_filters:
@@ -121,26 +194,196 @@ class PayrollService(BaseService):
                 beneficiaries_queryset,
             )
 
-        beneficiary_ids = list(beneficiaries_queryset.values_list('id', flat=True))
+        return beneficiaries_queryset
 
-        bills_queryset = Bill.objects.filter(
-            is_deleted=False,
-            date_bill__range=(date_from, date_to),
-            subject_type=ContentType.objects.get_for_model(Beneficiary),
-            subject_id__in=beneficiary_ids,
-            status__in=[Bill.Status.VALIDATED],
+    def _generate_benefits(self, payment_plan, beneficiaries_queryset, date_from, date_to, payroll, payment_cycle):
+        calculation = get_calculation_object(payment_plan.calculation)
+        calculation.calculate_if_active_for_object(
+            payment_plan,
+            user_id=self.user.id,
+            start_date=date_from, end_date=date_to,
+            beneficiaries_queryset=beneficiaries_queryset,
+            payroll=payroll,
+            payment_cycle=payment_cycle
         )
 
-        bills_queryset = bills_queryset.filter(
-            Q(payrollbill__isnull=True) | Q(payrollbill__is_deleted=True)
-        )
+    @transaction.atomic
+    def _move_benefit_consumptions(self, payroll, from_payroll_id):
+        payroll_benefits = PayrollBenefitConsumption.objects.filter(payroll_id=from_payroll_id,
+                                                                    benefit__status=BenefitConsumptionStatus.ACCEPTED)
+        payroll_benefits.update(payroll=payroll)
+        benefits = BenefitConsumption.objects.filter(payrollbenefitconsumption__payroll=payroll)
+        benefits.update(status=BenefitConsumptionStatus.APPROVE_FOR_PAYMENT)
 
-        if included_unpaid:
-            bills_queryset = bills_queryset.filter(json_ext__unpaid=True)
+
+class BenefitConsumptionService(BaseService):
+    OBJECT_TYPE = BenefitConsumption
+
+    def __init__(self, user, validation_class=BenefitConsumptionValidation):
+        super().__init__(user, validation_class)
+
+    @check_authentication
+    @register_service_signal('benefit_consumption_service.create')
+    def create(self, obj_data):
+        return super().create(obj_data)
+
+    @register_service_signal('benefit_consumption_service.update')
+    def update(self, obj_data):
+        return super().update(obj_data)
+
+    @check_authentication
+    @register_service_signal('benefit_consumption_service.delete')
+    def delete(self, obj_data):
+        return super().delete(obj_data)
+
+    @check_authentication
+    @register_service_signal('benefit_consumption_service.create_or_update_benefit_attachment')
+    def create_or_update_benefit_attachment(self, bills_queryset, benefit_id):
+        # remove first old attachments and save the new one
+        BenefitAttachment.objects.filter(benefit_id=benefit_id).delete()
+        # save new bill attachments
+        for bill in bills_queryset:
+            benefit_attachment = BenefitAttachment(bill_id=bill.id, benefit_id=benefit_id)
+            benefit_attachment.save(username=self.user.username)
+
+
+class CsvReconciliationService:
+    def __init__(self, user: InteractiveUser):
+        self.user = user
+
+    def download_reconciliation(self, payroll_id) -> BytesIO:
+        payroll = self._resolve_payroll(payroll_id)
+        bc_qs = self._get_benefit_consumption_qs(payroll)
+        df = pd.DataFrame.from_records(bc_qs.values(*PayrollConfig.csv_reconciliation_field_mapping.keys()))
+        df[PayrollConfig.csv_reconciliation_paid_extra_field] = df.apply(lambda row: self._fill_paid_column(row),
+                                                                         axis=1)
+        df.rename(columns=PayrollConfig.csv_reconciliation_field_mapping, inplace=True)
+
+        in_memory_file = BytesIO()
+        # BytesIO is duck-typed as a file object, so it can be passed to df.to_csv
+        # noinspection PyTypeChecker
+        df.to_csv(in_memory_file, index=False)
+        return in_memory_file
+
+    def upload_reconciliation(self, payroll_id, file, upload):
+        payroll = self._resolve_payroll(payroll_id)
+        upload.payroll = payroll
+        upload.status = upload.Status.IN_PROGRESS
+        upload.save(username=self.user.login_name)
+        if not file:
+            raise ValueError(_('csv_reconciliation.validation.file_required'))
+        df = pd.read_csv(file)
+        self._validate_dataframe(df)
+        df.rename(columns={v: k for k, v in PayrollConfig.csv_reconciliation_field_mapping.items()}, inplace=True)
+
+        df[PayrollConfig.csv_reconciliation_errors_column] = df.apply(lambda row: self._reconcile_row(payroll, row),
+                                                                      axis=1)
+
+        error_df = df[df[PayrollConfig.csv_reconciliation_errors_column].apply(lambda x: bool(x))]
+        if not error_df.empty:
+            in_memory_file = BytesIO()
+            df.rename(columns={k: v for k, v in PayrollConfig.csv_reconciliation_field_mapping.items()}, inplace=True)
+            df.to_csv(in_memory_file, index=False)
+            return in_memory_file, error_df.set_index(PayrollConfig.csv_reconciliation_code_column)\
+                                   [PayrollConfig.csv_reconciliation_errors_column].to_dict()
+        return file, None
+
+    def _get_benefit_consumption_qs(self, payroll):
+        qs = BenefitConsumption.objects.filter(payrollbenefitconsumption__payroll=payroll, is_deleted=False)
+        if not qs.exists():
+            raise ValueError('csv_reconciliation.validation.no_benefit_consumption_for_payroll')
+        return qs
+
+    def _validate_dataframe(self, df):
+        if df is None:
+            raise ValueError(_("Unknown error while loading import file"))
+        if df.empty:
+            raise ValueError(_("Import file is empty"))
+        if PayrollConfig.csv_reconciliation_errors_column in df.columns:
+            raise ValueError(_("Column errors in csv."))
+        if 'Status' in df.columns:
+            if (df[PayrollConfig.csv_reconciliation_status_column] == BenefitConsumptionStatus.RECONCILED).all():
+                raise ValueError(_("All of the Benefit Consumptions have been already reconciled."))
+
+    def _fill_paid_column(self, row):
+        if (PayrollConfig.csv_reconciliation_status_column in row
+                and row[PayrollConfig.csv_reconciliation_status_column] == BenefitConsumptionStatus.RECONCILED):
+            return PayrollConfig.csv_reconciliation_paid_yes
         else:
-            bills_queryset = bills_queryset.filter(
-                Q(json_ext__unpaid=False) |
-                Q(json_ext__unpaid__isnull=True)
-            )
+            return None
 
-        return bills_queryset
+    def _resolve_payroll(self, payroll_id):
+        if not payroll_id:
+            raise ValueError('csv_reconciliation.validation.payroll_id_required')
+        payroll = Payroll.objects.filter(id=payroll_id, is_deleted=False).first()
+        if not payroll:
+            raise ValueError('csv_reconciliation.validation.payroll_not_found')
+        return payroll
+
+    def _reconcile_row(self, payroll, row):
+        errors = []
+        bc = BenefitConsumption.objects.filter(code=row['code'], is_deleted=False).first()
+        if not bc:
+            errors.append(_('benefit_consumption_not_found'))
+        if not bc.payrollbenefitconsumption_set.filter(payroll=payroll).exists():
+            errors.append(_('benefit_consumption_not_in_payroll'))
+
+        if (row[PayrollConfig.csv_reconciliation_paid_extra_field]
+                and row[PayrollConfig.csv_reconciliation_paid_extra_field]
+                not in [PayrollConfig.csv_reconciliation_paid_yes, PayrollConfig.csv_reconciliation_paid_no]):
+            errors.append(_('paid_column_invalid_value'))
+
+        if not row[PayrollConfig.csv_reconciliation_receipt_column]:
+            errors.append(_('receipt_required'))
+
+        if bc and bc.status != row['status']:
+            errors.append(_('status_not_matching'))
+
+        if (not errors
+                and (row[PayrollConfig.csv_reconciliation_paid_extra_field] == PayrollConfig.csv_reconciliation_paid_yes
+                     and bc.status == BenefitConsumptionStatus.ACCEPTED)):
+            self._reconcile_bc(row, bc)
+
+        return errors if errors else None
+
+    def _reconcile_bc(self, row, bc):
+        bc.status = BenefitConsumptionStatus.RECONCILED
+        bc.receipt = row[PayrollConfig.csv_reconciliation_receipt_column]
+        bc.save(username=self.user.login_name)
+        bill = Bill.objects.filter(benefitattachment__benefit=bc, is_deleted=False).first()
+        if bill:
+            self._reconcile_bill(row, bill)
+
+    def _reconcile_bill(self, row, bill):
+        current_date = datetime.date.today()
+        bill.status = Bill.Status.RECONCILIATED
+        bill.date_payed = current_date
+        bill.save(username=self.user.login_name)
+
+        bill_payment = {
+            "code_tp": bill.code_tp,
+            "code_ext": bill.code_ext,
+            "code_receipt": bill.code,
+            "label": bill.terms,
+            'reconciliation_status': PaymentInvoice.ReconciliationStatus.RECONCILIATED,
+            "fees": 0.0,
+            "amount_received": bill.amount_total,
+            "date_payment": current_date,
+            'payment_origin': "online payment",
+            'payer_ref': 'payment reference',
+            'payer_name': 'payer name',
+            "json_ext": {}
+        }
+
+        bill_payment_details = {
+            'subject_type': ContentType.objects.get_for_model(bill),
+            'subject': bill,
+            'status': DetailPaymentInvoice.DetailPaymentStatus.ACCEPTED,
+            'fees': 0.0,
+            'amount': bill.amount_total,
+            'reconcilation_id': row[PayrollConfig.csv_reconciliation_receipt_column],
+            'reconcilation_date': current_date,
+        }
+        bill_payment_details = DetailPaymentInvoice(**bill_payment_details)
+        payment_service = PaymentInvoiceService(self.user)
+        payment_service.create_with_detail(bill_payment, bill_payment_details)

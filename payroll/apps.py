@@ -3,7 +3,6 @@ from django.apps import AppConfig
 from core.custom_filters import CustomFilterRegistryPoint
 from payroll.payments_registry import PaymentsMethodRegistryPoint
 
-
 MODULE_NAME = 'payroll'
 
 DEFAULT_CONFIG = {
@@ -14,8 +13,31 @@ DEFAULT_CONFIG = {
     "gql_payroll_search_perms": ["202001"],
     "gql_payroll_create_perms": ["202002"],
     "gql_payroll_delete_perms": ["202004"],
+    "gql_csv_reconciliation_search_perms": ["206001"],
+    "gql_csv_reconciliation_create_perms": ["206002"],
     "payroll_accept_event": "payroll.accept_payroll",
-    "payroll_reconciliation_event": "payroll.payroll_reconciliation"
+    "payroll_reconciliation_event": "payroll.payroll_reconciliation",
+    "payroll_reject_event": "payroll.payroll_reject",
+    "csv_reconciliation_field_mapping": {
+        'payrollbenefitconsumption__payroll__name': 'Payroll Name',
+        'payrollbenefitconsumption__payroll__status': 'Payroll Status',
+        'individual__first_name': 'First Name',
+        'individual__last_name': 'Last Name',
+        'individual__dob': 'Date of Birth',
+        'code': 'Code',
+        'status': 'Status',
+        'amount': 'Amount',
+        'type': 'Type',
+        'receipt': 'Receipt',
+    },
+    "csv_reconciliation_status_column": "Status",
+    "csv_reconciliation_paid_extra_field": "Paid",
+    "csv_reconciliation_receipt_column": "receipt",
+    "csv_reconciliation_errors_column": "errors",
+    "csv_reconciliation_code_column": "code",
+    "csv_reconciliation_paid_yes": "Yes",
+    "csv_reconciliation_paid_no": "No",
+    "payroll_delete_event": "payroll.payroll_delete",
 }
 
 
@@ -30,8 +52,20 @@ class PayrollConfig(AppConfig):
     gql_payroll_search_perms = None
     gql_payroll_create_perms = None
     gql_payroll_delete_perms = None
+    gql_csv_reconciliation_search_perms = None
+    gql_csv_reconciliation_create_perms = None
     payroll_accept_event = None
     payroll_reconciliation_event = None
+    payroll_reject_event = None
+    csv_reconciliation_field_mapping = None
+    csv_reconciliation_status_column = None
+    csv_reconciliation_paid_extra_field = None
+    csv_reconciliation_receipt_column = None
+    csv_reconciliation_errors_column = None
+    csv_reconciliation_code_column = None
+    csv_reconciliation_paid_yes = None
+    csv_reconciliation_paid_no = None
+    payroll_delete_event = None
 
     def ready(self):
         from core.models import ModuleConfiguration
@@ -57,14 +91,16 @@ class PayrollConfig(AppConfig):
         )
 
         from payroll.strategies import (
-            StrategyOnlinePayment,
-            StrategyMobilePayment,
-            StrategyOnSitePayment
+            StrategyOfflinePayment
         )
         PaymentsMethodRegistryPoint.register_payment_method(
             payment_method_class_list=[
-                StrategyOnlinePayment(),
-                StrategyMobilePayment(),
-                StrategyOnSitePayment()
+                StrategyOfflinePayment()
             ]
         )
+
+    @staticmethod
+    def get_payroll_payment_file_path(payroll_id, file_name=None):
+        if file_name:
+            return f"csv_reconciliation/payroll_{payroll_id}/{file_name}"
+        return f"csv_reconciliation/payroll_{payroll_id}"
