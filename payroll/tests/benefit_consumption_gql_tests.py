@@ -6,7 +6,7 @@ from django.test import TestCase
 
 from location.models import Location
 from payroll.tests.data import gql_benefit_consumption_query
-from payroll.tests.helpers import LogInHelper
+from core.test_helpers import LogInHelper
 from payroll.schema import Query, Mutation
 
 

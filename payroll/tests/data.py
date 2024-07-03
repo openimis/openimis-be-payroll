@@ -88,26 +88,8 @@ query q2 {
 }
 """
 
-# gql_payroll_create = """
-# mutation m2 {{
-#   createPayroll (input:{{
-#                 name: "{name}",
-#                 benefitPlanId: "{benefit_plan_id}",
-#                 paymentPointId: "{payment_point_id}"
-#                 paymentMethod: "{payment_method}"
-#                 status: {status}
-#                 dateValidFrom: "{date_valid_from}"
-#                 dateValidTo: "{date_valid_to}"
-#                 includedUnpaid: {include_unpaid}
-#                 jsonExt: "{json_ext}"
-#   }}) {{
-#     clientMutationId
-#   }}
-# }}
-# """
-
 gql_payroll_create = """
-mutation createPayroll($name: String!, $paymentCycleId: UUID!, $paymentPlanId: UUID!, $paymentPointId: UUID!, $paymentMethod: String!, $status: PayrollStatusEnum!, $dateValidFrom: Date, $dateValidTo: Date, $includedUnpaid: Boolean!, $jsonExt: JSONString, $clientMutationId: String) {
+mutation createPayroll($name: String!, $paymentCycleId: UUID, $paymentPlanId: UUID!, $paymentPointId: UUID, $paymentMethod: String!, $status: PayrollStatusEnum!, $dateValidFrom: Date, $dateValidTo: Date, $jsonExt: JSONString, $clientMutationId: String) {
   createPayroll(input: {name: $name, paymentCycleId: $paymentCycleId, paymentPlanId: $paymentPlanId, paymentPointId: $paymentPointId, paymentMethod: $paymentMethod, status: $status, dateValidFrom: $dateValidFrom, dateValidTo: $dateValidTo, jsonExt: $jsonExt, clientMutationId : $clientMutationId}) {
     clientMutationId
   }
