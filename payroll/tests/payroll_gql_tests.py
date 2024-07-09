@@ -17,7 +17,8 @@ from payment_cycle.models import PaymentCycle
 from payroll.models import Payroll, PayrollBill, PayrollStatus
 from payroll.tests.data import gql_payroll_create, gql_payroll_query, gql_payroll_delete, \
     gql_payroll_create_no_json_ext
-from payroll.tests.helpers import LogInHelper, PaymentPointHelper
+from payroll.tests.helpers import PaymentPointHelper
+from core.test_helpers import LogInHelper
 from payroll.schema import Query, Mutation
 from social_protection.models import BenefitPlan, Beneficiary
 from social_protection.tests.data import service_add_payload
@@ -38,7 +39,7 @@ class PayrollGQLTestCase(TestCase):
     def setUpClass(cls):
         super().setUpClass()
 
-        cls.user = LogInHelper().get_or_create_user_api(username='username_authorized')
+        cls.user = LogInHelper().get_or_create_user_api(username='username_authorized', roles=[7])
         cls.user_unauthorized = LogInHelper().get_or_create_user_api(username='username_unauthorized', roles=[1])
         gql_schema = Schema(
             query=Query,
@@ -48,7 +49,7 @@ class PayrollGQLTestCase(TestCase):
         cls.gql_context = cls.GQLContext(cls.user)
         cls.gql_context_unauthorized = cls.GQLContext(cls.user_unauthorized)
         cls.name = "TestCreatePayroll"
-        cls.status = PayrollStatus.CREATED
+        cls.status = PayrollStatus.PENDING_APPROVAL
         cls.payment_method = "TestPaymentMethod"
         cls.date_valid_from, cls.date_valid_to = cls.__get_start_and_end_of_current_month()
         cls.payment_point = PaymentPointHelper().get_or_create_payment_point_api()
@@ -62,6 +63,27 @@ class PayrollGQLTestCase(TestCase):
         cls.json_ext_able_bodied_false = """{"advanced_criteria": [{"custom_filter_condition": "able_bodied__boolean=False"}]}"""
         cls.json_ext_able_bodied_true = """{"advanced_criteria": [{"custom_filter_condition": "able_bodied__boolean=True"}]}"""
         cls.includedUnpaid = False
+
+    def setup(self):
+        payroll = self.payroll_from_db()
+        if payroll:
+            self.delete_payroll_and_check_bill(payroll)
+        temp_payroll = self.payroll_from_db(f"{self.name}-tmp")
+        if temp_payroll:
+            self.delete_payroll_and_check_bill(temp_payroll)
+
+    def payroll_from_db(self, name=None):
+        return Payroll.objects.filter(
+            name=(name or self.name),
+            payment_plan_id=self.payment_plan.id,
+            payment_cycle_id=self.payment_cycle.id,
+            payment_point_id=self.payment_point.id,
+            payment_method=self.payment_method,
+            status=self.status,
+            date_valid_from=self.date_valid_from,
+            date_valid_to=self.date_valid_to,
+            is_deleted=False,
+        )
 
     def test_query(self):
         output = self.gql_client.execute(gql_payroll_query, context=self.gql_context)
@@ -78,28 +100,18 @@ class PayrollGQLTestCase(TestCase):
             "name": name,
             "paymentCycleId": str(self.payment_cycle.id),
             "paymentPlanId": str(self.payment_plan.id),
+            "paymentPointId": str(self.payment_point.id),
             "paymentMethod": self.payment_method,
-            "status": PayrollStatus.PENDING_APPROVAL,
+            "status": self.status,
             "dateValidFrom": self.date_valid_from,
             "dateValidTo": self.date_valid_to,
             "jsonExt": json_ext,
             "clientMutationId": str(uuid.uuid4())
         }
-
         output = self.gql_client.execute(gql_payroll_create, context=self.gql_context, variable_values=variables)
+        self.assertEqual(output.get('errors'), None)
 
-        payroll = Payroll.objects.filter(
-            name=name,
-            payment_plan_id=self.payment_plan.id,
-            payment_cycle_id=self.payment_cycle.id,
-            payment_point_id=self.payment_point.id,
-            payment_method=self.payment_method,
-            status=self.status,
-            date_valid_from=self.date_valid_from,
-            date_valid_to=self.date_valid_to,
-            is_deleted=False,
-        )
-        return payroll
+        return self.payroll_from_db(name)
 
     def create_payroll_no_json_ext(self, name):
         payload = gql_payroll_create_no_json_ext % (
@@ -113,18 +125,9 @@ class PayrollGQLTestCase(TestCase):
             self.date_valid_to,
         )
         output = self.gql_client.execute(payload, context=self.gql_context)
-        payroll = Payroll.objects.filter(
-            name=name,
-            payment_plan_id=self.payment_plan.id,
-            payment_point_id=self.payment_point.id,
-            payment_cycle_id=self.payment_cycle.id,
-            payment_method=self.payment_method,
-            status=self.status,
-            date_valid_from=self.date_valid_from,
-            date_valid_to=self.date_valid_to,
-            is_deleted=False,
-        )
-        return payroll
+        self.assertEqual(output.get('errors'), None)
+
+        return self.payroll_from_db(name)
 
     def delete_payroll_and_check_bill(self, payroll):
         payroll_bill = PayrollBill.objects.filter(
@@ -209,6 +212,7 @@ class PayrollGQLTestCase(TestCase):
         payroll_bill.save(username=self.user.username)
         payload = gql_payroll_delete % json.dumps([str(payroll.id)])
         output = self.gql_client.execute(payload, context=self.gql_context)
+        self.assertEqual(output.get('errors'), None)
         self.assertTrue(Payroll.objects.filter(id=payroll.id, is_deleted=True).exists())
         self.assertEqual(PayrollBill.objects.filter(payroll=payroll, bill=self.bill).count(), 0)
 
@@ -262,7 +266,12 @@ class PayrollGQLTestCase(TestCase):
 
     @classmethod
     def __create_payment_cycle(cls):
-        pc = PaymentCycle(run_year=2023, run_month=2, type=ContentType.objects.get_for_model(BenefitPlan))
+        pc = PaymentCycle(
+            code='foo',
+            start_date='2023-02-01',
+            end_date='2024-02-01',
+            type=ContentType.objects.get_for_model(BenefitPlan)
+        )
         pc.save(username=cls.user.username)
         return pc
 

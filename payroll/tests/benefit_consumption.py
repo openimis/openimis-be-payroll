@@ -7,7 +7,7 @@ from payroll.models import BenefitConsumption, BenefitAttachment
 from payroll.services import BenefitConsumptionService
 from payroll.tests.data import benefit_consumption_data_test, benefit_consumption_data_update
 from individual.tests.data import service_add_individual_payload
-from payroll.tests.helpers import LogInHelper
+from core.test_helpers import LogInHelper
 from invoice.models import Bill
 from invoice.tests.helpers import create_test_bill
 
