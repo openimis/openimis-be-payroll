@@ -112,3 +112,42 @@ class StrategyOfPaymentInterface(object,  metaclass=abc.ABCMeta):
                 id__in=benefits,
                 is_deleted=False
             ).delete()
+
+    @classmethod
+    def remove_benefit_from_payroll(cls, benefit):
+        from payroll.models import (
+            BenefitAttachment,
+            BenefitConsumption,
+            PayrollBenefitConsumption
+        )
+        from invoice.models import (
+            Bill,
+            BillItem
+        )
+
+        benefit_data = BenefitConsumption.objects.filter(
+            id=benefit.id,
+            is_deleted=False
+        ).values_list('id', 'benefitattachment__bill')
+
+        if len(benefit_data) > 0:
+            benefits, related_bills = zip(*benefit_data)
+
+            BenefitAttachment.objects.filter(
+                benefit_id__in=benefits
+            ).delete()
+
+            BillItem.objects.filter(
+                bill__id__in=related_bills
+            ).delete()
+
+            Bill.objects.filter(
+                id__in=related_bills
+            ).delete()
+
+            PayrollBenefitConsumption.objects.filter(benefit=benefit).delete()
+
+            BenefitConsumption.objects.filter(
+                id__in=benefits,
+                is_deleted=False
+            ).delete()

@@ -9,7 +9,7 @@ from core.gql.gql_mutations.base_mutation import BaseHistoryModelCreateMutationM
 from core.schema import OpenIMISMutation
 from payroll.apps import PayrollConfig
 from payroll.models import PaymentPoint, Payroll, PayrollStatus, PayrollMutation
-from payroll.services import PaymentPointService, PayrollService
+from payroll.services import PaymentPointService, PayrollService, BenefitConsumptionService
 
 
 class CreatePaymentPointInputType(OpenIMISMutation.Input):
@@ -281,3 +281,33 @@ class RejectPayrollMutation(BaseHistoryModelDeleteMutationMixin, BaseMutation):
 
     class Input(DeletePayrollInputType):
         pass
+
+
+class DeleteBenefitConsumptionMutation(BaseHistoryModelDeleteMutationMixin, BaseMutation):
+    _mutation_class = "DeleteBenefitConsumptionMutation"
+    _mutation_module = "payroll"
+    _model = Payroll
+
+    @classmethod
+    def _validate_mutation(cls, user, **data):
+        if type(user) is AnonymousUser or not user.has_perms(
+                PayrollConfig.gql_payroll_delete_perms):
+            raise ValidationError("mutation.authentication_required")
+
+    @classmethod
+    def _mutate(cls, user, **data):
+        if "client_mutation_id" in data:
+            data.pop('client_mutation_id')
+        if "client_mutation_label" in data:
+            data.pop('client_mutation_label')
+
+        service = BenefitConsumptionService(user)
+        ids = data.get('ids')
+        if ids:
+            with transaction.atomic():
+                for id in ids:
+                    service.delete({'id': id})
+
+    class Input(DeletePayrollInputType):
+        pass
+

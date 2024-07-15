@@ -25,6 +25,7 @@ class BenefitConsumptionStatus(models.TextChoices):
     REJECTED = "REJECTED", _("REJECTED")
     DUPLICATE = "DUPLICATE", _("DUPLICATE")
     RECONCILED = "RECONCILED", _("RECONCILED")
+    PENDING_DELETION = "PENDING_DELETION", _("PENDING_DELETION")
 
 
 class PaymentPoint(HistoryModel):

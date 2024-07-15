@@ -40,6 +40,7 @@ DEFAULT_CONFIG = {
     "csv_reconciliation_paid_yes": "Yes",
     "csv_reconciliation_paid_no": "No",
     "payroll_delete_event": "payroll.payroll_delete",
+    "benefit_delete_event": "payroll.benefit_delete",
     "opensearch_synch": False,
 
     "gateway_base_url": "http://41.175.18.170:8070/api/mobile/v1/",
@@ -80,6 +81,7 @@ class PayrollConfig(AppConfig):
     csv_reconciliation_paid_yes = None
     csv_reconciliation_paid_no = None
     payroll_delete_event = None
+    benefit_delete_event = None
     opensearch_synch = None
 
     gateway_base_url = None

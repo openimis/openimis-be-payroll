@@ -6,9 +6,10 @@ from core.signals import bind_service_signal
 from openIMIS.openimisapps import openimis_apps
 from tasks_management.models import Task
 from payroll.apps import PayrollConfig
-from payroll.models import Payroll
+from payroll.models import Payroll, BenefitConsumption
 from payroll.payments_registry import PaymentMethodStorage
 from payroll.services import PayrollService
+from payroll.strategies import StrategyOfPaymentInterface
 
 
 logger = logging.getLogger(__name__)
@@ -78,7 +79,7 @@ def bind_service_signals():
                     payroll = Payroll.objects.get(id=task['entity_id'])
                     reject_approved_payroll(payroll, user)
         except Exception as exc:
-            logger.error("Error while executing on_task_complete_payroll_reconciliation", exc_info=exc)
+            logger.error("Error while executing on_task_complete_reject_approved_payroll", exc_info=exc)
 
     def on_task_delete_payroll(**kwargs):
         def delete_payroll(payroll, user):
@@ -98,7 +99,24 @@ def bind_service_signals():
                     payroll = Payroll.objects.get(id=task['entity_id'])
                     delete_payroll(payroll, user)
         except Exception as exc:
-            logger.error("Error while executing on_task_complete_payroll_reconciliation", exc_info=exc)
+            logger.error("Error while executing on_task_complete_delete_payroll", exc_info=exc)
+
+    def on_task_delete_benefit(**kwargs):
+        def delete_benefit(benefit, user):
+            StrategyOfPaymentInterface.remove_benefit_from_payroll(benefit=benefit)
+        try:
+            result = kwargs.get('result', None)
+            task = result['data']['task']
+            user = User.objects.get(id=result['data']['user']['id'])
+            if result \
+                    and result['success'] \
+                    and task['business_event'] == PayrollConfig.benefit_delete_event:
+                task_status = task['status']
+                if task_status == Task.Status.COMPLETED:
+                    benefit = BenefitConsumption.objects.get(id=task['entity_id'])
+                    delete_benefit(benefit, user)
+        except Exception as exc:
+            logger.error("Error while executing on_task_complete_delete_benefit", exc_info=exc)
 
     bind_service_signal(
         'task_service.complete_task',
@@ -121,5 +139,11 @@ def bind_service_signals():
     bind_service_signal(
         'task_service.complete_task',
         on_task_delete_payroll,
+        bind_type=ServiceSignalBindType.AFTER
+    )
+
+    bind_service_signal(
+        'task_service.complete_task',
+        on_task_delete_benefit,
         bind_type=ServiceSignalBindType.AFTER
     )

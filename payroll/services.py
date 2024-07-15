@@ -241,7 +241,18 @@ class BenefitConsumptionService(BaseService):
     @check_authentication
     @register_service_signal('benefit_consumption_service.delete')
     def delete(self, obj_data):
-        return super().delete(obj_data)
+        benefit_to_delete = BenefitConsumption.objects.get(id=obj_data['id'])
+        benefit_to_delete.status = BenefitConsumptionStatus.PENDING_DELETION
+        benefit_to_delete.save(username=self.user.username)
+        data = {'id': benefit_to_delete.id}
+        TaskService(self.user).create({
+            'source': 'benefit_delete',
+            'entity': benefit_to_delete,
+            'status': Task.Status.RECEIVED,
+            'executor_action_event': TasksManagementConfig.default_executor_event,
+            'business_event': PayrollConfig.benefit_delete_event,
+            'data': _get_std_task_data_payload(data)
+        })
 
     @check_authentication
     @register_service_signal('benefit_consumption_service.create_or_update_benefit_attachment')
