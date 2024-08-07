@@ -319,8 +319,24 @@ class CsvReconciliationService:
         self._validate_dataframe(df)
         df.rename(columns={v: k for k, v in PayrollConfig.csv_reconciliation_field_mapping.items()}, inplace=True)
 
+        affected_rows = 0
+        skipped_items = 0
+        total_number_of_benefits_in_file = len(df)
+
         df[PayrollConfig.csv_reconciliation_errors_column] = df.apply(lambda row: self._reconcile_row(payroll, row),
                                                                       axis=1)
+
+        for _, row in df.iterrows():
+            if not pd.isna(row[PayrollConfig.csv_reconciliation_errors_column]):
+                skipped_items += 1
+            else:
+                affected_rows += 1
+
+        summary = {
+            'affected_rows': affected_rows,
+            'total_number_of_benefits_in_file': total_number_of_benefits_in_file,
+            'skipped_items': skipped_items
+        }
 
         error_df = df[df[PayrollConfig.csv_reconciliation_errors_column].apply(lambda x: bool(x))]
         if not error_df.empty:
@@ -328,8 +344,8 @@ class CsvReconciliationService:
             df.rename(columns={k: v for k, v in PayrollConfig.csv_reconciliation_field_mapping.items()}, inplace=True)
             df.to_csv(in_memory_file, index=False)
             return in_memory_file, error_df.set_index(PayrollConfig.csv_reconciliation_code_column)\
-                                   [PayrollConfig.csv_reconciliation_errors_column].to_dict()
-        return file, None
+                                   [PayrollConfig.csv_reconciliation_errors_column].to_dict(), summary
+        return file, None, summary
 
     def _get_benefit_consumption_qs(self, payroll):
         qs = BenefitConsumption.objects.filter(payrollbenefitconsumption__payroll=payroll, is_deleted=False)
