@@ -272,10 +272,35 @@ class CsvReconciliationService:
     def download_reconciliation(self, payroll_id) -> BytesIO:
         payroll = self._resolve_payroll(payroll_id)
         bc_qs = self._get_benefit_consumption_qs(payroll)
-        df = pd.DataFrame.from_records(bc_qs.values(*PayrollConfig.csv_reconciliation_field_mapping.keys()))
-        df[PayrollConfig.csv_reconciliation_paid_extra_field] = df.apply(lambda row: self._fill_paid_column(row),
-                                                                         axis=1)
+        # Retrieve the basic fields
+        field_keys = list(PayrollConfig.csv_reconciliation_field_mapping.keys())
+        records = list(bc_qs.values(*field_keys))
+
+        # Collect all extra_info keys to ensure all columns are present in the DataFrame
+        extra_info_keys = set()
+        extra_info_dicts = []  # To store extra_info dicts for each record
+        for record in records:
+            bc = bc_qs.get(code=record['code'])
+            extra_info = bc.json_ext.get('extra_info', {}) if bc.json_ext else {}
+            extra_info_keys.update(extra_info.keys())
+            extra_info_dicts.append(extra_info)
+
+        # Convert to DataFrame
+        df = pd.DataFrame.from_records(records)
+
+        for key in extra_info_keys:
+            if key not in df.columns:
+                df[key] = None
+
+        # Add paid extra field
+        df[PayrollConfig.csv_reconciliation_paid_extra_field] = df.apply(
+            lambda row: self._fill_paid_column(row), axis=1
+        )
         df.rename(columns=PayrollConfig.csv_reconciliation_field_mapping, inplace=True)
+
+        # Add extra_info fields at the end of the DataFrame
+        for key in extra_info_keys:
+            df[key] = [extra_info_dict.get(key, None) for extra_info_dict in extra_info_dicts]
 
         in_memory_file = BytesIO()
         # BytesIO is duck-typed as a file object, so it can be passed to df.to_csv
@@ -345,7 +370,7 @@ class CsvReconciliationService:
             errors.append(_('benefit_consumption_not_found'))
         if not bc.payrollbenefitconsumption_set.filter(payroll=payroll).exists():
             errors.append(_('benefit_consumption_not_in_payroll'))
-
+        print(row[PayrollConfig.csv_reconciliation_paid_extra_field])
         if (row[PayrollConfig.csv_reconciliation_paid_extra_field]
                 and row[PayrollConfig.csv_reconciliation_paid_extra_field]
                 not in [PayrollConfig.csv_reconciliation_paid_yes, PayrollConfig.csv_reconciliation_paid_no]):
@@ -367,6 +392,9 @@ class CsvReconciliationService:
     def _reconcile_bc(self, row, bc):
         bc.status = BenefitConsumptionStatus.RECONCILED
         bc.receipt = row[PayrollConfig.csv_reconciliation_receipt_column]
+        extra_info = {k: row[k] for k in row.index
+                      if k not in PayrollConfig.csv_reconciliation_field_mapping and not pd.isna(row[k])}
+        bc.json_ext = {'extra_info': extra_info}
         bc.save(username=self.user.login_name)
         bill = Bill.objects.filter(benefitattachment__benefit=bc, is_deleted=False).first()
         if bill:
