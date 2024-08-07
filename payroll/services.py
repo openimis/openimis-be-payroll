@@ -370,7 +370,6 @@ class CsvReconciliationService:
             errors.append(_('benefit_consumption_not_found'))
         if not bc.payrollbenefitconsumption_set.filter(payroll=payroll).exists():
             errors.append(_('benefit_consumption_not_in_payroll'))
-        print(row[PayrollConfig.csv_reconciliation_paid_extra_field])
         if (row[PayrollConfig.csv_reconciliation_paid_extra_field]
                 and row[PayrollConfig.csv_reconciliation_paid_extra_field]
                 not in [PayrollConfig.csv_reconciliation_paid_yes, PayrollConfig.csv_reconciliation_paid_no]):
