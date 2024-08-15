@@ -128,7 +128,7 @@ class DeletePaymentPointMutation(BaseHistoryModelDeleteMutationMixin, BaseMutati
         if ids:
             with transaction.atomic():
                 for id in ids:
-                    service.delete({'id': id})
+                    service.delete({'id': id, 'user': user})
 
     class Input(DeletePaymentPointInputType):
         pass
@@ -190,7 +190,7 @@ class DeletePayrollMutation(BaseHistoryModelDeleteMutationMixin, BaseMutation):
         if ids:
             with transaction.atomic():
                 for id in ids:
-                    service.delete({'id': id})
+                    service.delete({'id': id, 'user': user})
 
     class Input(DeletePayrollInputType):
         pass
