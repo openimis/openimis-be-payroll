@@ -56,9 +56,9 @@ if 'opensearch_reports' in apps.app_configs and not is_unit_test_env:
 
         def get_instances_from_related(self, related_instance):
             if isinstance(related_instance, PaymentPlan):
-                return related_instance.payroll_set.all()
+                return Payroll.objects.filter(payment_plan=related_instance)
             elif isinstance(related_instance, PaymentCycle):
-                return related_instance.payroll_set.all()
+                return Payroll.objects.filter(payment_cycle=related_instance)
 
 
     @registry.register_document
@@ -98,7 +98,7 @@ if 'opensearch_reports' in apps.app_configs and not is_unit_test_env:
 
         def get_instances_from_related(self, related_instance):
             if isinstance(related_instance, Individual):
-                return related_instance.benefit_consumption_set.all()
+                return BenefitConsumption.objects.filter(individual=related_instance)
 
 
     @registry.register_document
