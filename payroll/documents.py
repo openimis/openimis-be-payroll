@@ -1,10 +1,12 @@
 from django.apps import apps
+from django.conf import settings
 
-from payroll.apps import PayrollConfig
+is_unit_test_env = getattr(settings, 'IS_UNIT_TEST_ENV', False)
 
 # Check if the 'opensearch_reports' app is in INSTALLED_APPS
-if 'opensearch_reports' in apps.app_configs and PayrollConfig.opensearch_synch:
-    from django_opensearch_dsl import Document, fields as opensearch_fields
+if 'opensearch_reports' in apps.app_configs and not is_unit_test_env:
+    from opensearch_reports.service import BaseSyncDocument
+    from django_opensearch_dsl import fields as opensearch_fields
     from django_opensearch_dsl.registries import registry
     from payroll.models import (
         Payroll,
@@ -18,7 +20,9 @@ if 'opensearch_reports' in apps.app_configs and PayrollConfig.opensearch_synch:
     from invoice.models import Bill
 
     @registry.register_document
-    class PayrollDocument(Document):
+    class PayrollDocument(BaseSyncDocument):
+        DASHBOARD_NAME = 'Payment'
+
         name = opensearch_fields.KeywordField()
         status = opensearch_fields.KeywordField()
         payment_method = opensearch_fields.KeywordField()
@@ -52,13 +56,15 @@ if 'opensearch_reports' in apps.app_configs and PayrollConfig.opensearch_synch:
 
         def get_instances_from_related(self, related_instance):
             if isinstance(related_instance, PaymentPlan):
-                return related_instance.payroll_set.all()
+                return Payroll.objects.filter(payment_plan=related_instance)
             elif isinstance(related_instance, PaymentCycle):
-                return related_instance.payroll_set.all()
+                return Payroll.objects.filter(payment_cycle=related_instance)
 
 
     @registry.register_document
-    class BenefitConsumptionDocument(Document):
+    class BenefitConsumptionDocument(BaseSyncDocument):
+        DASHBOARD_NAME = 'Payment'
+
         photo = opensearch_fields.KeywordField()
         code = opensearch_fields.KeywordField()
         date_due = opensearch_fields.DateField()
@@ -92,11 +98,13 @@ if 'opensearch_reports' in apps.app_configs and PayrollConfig.opensearch_synch:
 
         def get_instances_from_related(self, related_instance):
             if isinstance(related_instance, Individual):
-                return related_instance.benefit_consumption_set.all()
+                return BenefitConsumption.objects.filter(individual=related_instance)
 
 
     @registry.register_document
-    class PayrollBenefitConsumptionDocument(Document):
+    class PayrollBenefitConsumptionDocument(BaseSyncDocument):
+        DASHBOARD_NAME = 'Payment'
+
         payroll = opensearch_fields.ObjectField(properties={
             'name': opensearch_fields.KeywordField(),
             'status': opensearch_fields.KeywordField(),
@@ -152,7 +160,9 @@ if 'opensearch_reports' in apps.app_configs and PayrollConfig.opensearch_synch:
 
 
     @registry.register_document
-    class BenefitAttachmentDocument(Document):
+    class BenefitAttachmentDocument(BaseSyncDocument):
+        DASHBOARD_NAME = 'Invoice'
+
         bill = opensearch_fields.ObjectField(properties={
             'code': opensearch_fields.KeywordField(),
             'code_ext': opensearch_fields.KeywordField(),
