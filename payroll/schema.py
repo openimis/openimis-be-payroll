@@ -5,7 +5,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.db.models import Q, Sum
 
 from core.schema import OrderedDjangoFilterConnectionField
-from core.service import wait_for_mutation
+from core.services import wait_for_mutation
 from core.utils import append_validity_filter
 from invoice.gql.gql_types.bill_types import BillGQLType
 from invoice.models import Bill
