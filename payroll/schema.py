@@ -5,6 +5,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.db.models import Q, Sum
 
 from core.schema import OrderedDjangoFilterConnectionField
+from core.services import wait_for_mutation
 from core.utils import append_validity_filter
 from invoice.gql.gql_types.bill_types import BillGQLType
 from invoice.models import Bill
@@ -121,6 +122,7 @@ class Query(graphene.ObjectType):
 
         client_mutation_id = kwargs.get("client_mutation_id", None)
         if client_mutation_id:
+            wait_for_mutation(client_mutation_id)
             filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
 
         subject_type = kwargs.get("subject_type", None)
@@ -143,6 +145,7 @@ class Query(graphene.ObjectType):
 
         client_mutation_id = kwargs.get("client_mutation_id", None)
         if client_mutation_id:
+            wait_for_mutation(client_mutation_id)
             filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
 
         filter_only_unpaid = kwargs.get("filterOnlyUnpaid", None)
@@ -161,6 +164,7 @@ class Query(graphene.ObjectType):
 
         client_mutation_id = kwargs.get("client_mutation_id", None)
         if client_mutation_id:
+            wait_for_mutation(client_mutation_id)
             filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
 
         return gql_optimizer.query(BenefitAttachment.objects.filter(*filters), info)
@@ -171,6 +175,7 @@ class Query(graphene.ObjectType):
 
         client_mutation_id = kwargs.get("client_mutation_id")
         if client_mutation_id:
+            wait_for_mutation(client_mutation_id)
             filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
 
         parent_location = kwargs.get('parent_location')
@@ -186,6 +191,7 @@ class Query(graphene.ObjectType):
 
         client_mutation_id = kwargs.get("client_mutation_id")
         if client_mutation_id:
+            wait_for_mutation(client_mutation_id)
             filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
 
         query = Payroll.objects.filter(*filters)
@@ -197,6 +203,7 @@ class Query(graphene.ObjectType):
 
         client_mutation_id = kwargs.get("client_mutation_id")
         if client_mutation_id:
+            wait_for_mutation(client_mutation_id)
             filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
 
         benefit_plan_name = kwargs.get("benefitPlanName")
@@ -221,6 +228,7 @@ class Query(graphene.ObjectType):
 
         client_mutation_id = kwargs.get("client_mutation_id")
         if client_mutation_id:
+            wait_for_mutation(client_mutation_id)
             filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
 
         query = BenefitConsumption.objects.filter(*filters)
