@@ -216,11 +216,13 @@ class PayrollService(BaseService):
 
     @transaction.atomic
     def _move_benefit_consumptions(self, payroll, from_payroll_id):
-        payroll_benefits = PayrollBenefitConsumption.objects.filter(payroll_id=from_payroll_id,
-                                                                    benefit__status=BenefitConsumptionStatus.ACCEPTED)
+        payroll_benefits = PayrollBenefitConsumption.objects.filter(
+            payroll_id=from_payroll_id,
+            benefit__status__in=[BenefitConsumptionStatus.ACCEPTED, BenefitConsumptionStatus.APPROVE_FOR_PAYMENT]
+        )
         payroll_benefits.update(payroll=payroll)
         benefits = BenefitConsumption.objects.filter(payrollbenefitconsumption__payroll=payroll)
-        benefits.update(status=BenefitConsumptionStatus.APPROVE_FOR_PAYMENT)
+        benefits.update(status=BenefitConsumptionStatus.ACCEPTED)
 
 
 class BenefitConsumptionService(BaseService):

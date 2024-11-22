@@ -74,7 +74,8 @@ class Query(graphene.ObjectType):
         dateValidTo__Lte=graphene.DateTime(),
         applyDefaultValidityFilter=graphene.Boolean(),
         client_mutation_id=graphene.String(),
-        payroll_uuid=graphene.UUID(required=True)
+        payroll_uuid=graphene.UUID(required=True),
+        filterOnlyUnpaid=graphene.Boolean()
     )
 
     benefit_attachment_by_payroll = OrderedDjangoFilterConnectionField(
@@ -143,6 +144,10 @@ class Query(graphene.ObjectType):
         client_mutation_id = kwargs.get("client_mutation_id", None)
         if client_mutation_id:
             filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
+
+        filter_only_unpaid = kwargs.get("filterOnlyUnpaid", None)
+        if filter_only_unpaid:
+            filters.append(Q(status__in=[BenefitConsumptionStatus.ACCEPTED, BenefitConsumptionStatus.APPROVE_FOR_PAYMENT]))
 
         return gql_optimizer.query(BenefitConsumption.objects.filter(*filters), info)
 
